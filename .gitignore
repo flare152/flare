@@ -1,1 +1,5 @@
 /target
+.idea
+Cargo.lock
+Cargo.toml.orig
+.vscode
