@@ -1,0 +1,20 @@
+[package]
+name = "im_core"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+tokio = { workspace = true }
+anyhow = { workspace = true }
+async-trait = { workspace = true }
+thiserror = { workspace = true }
+prost = { workspace = true }
+futures = { workspace = true }
+tokio-tungstenite = { workspace = true }
+uuid = { workspace = true }
+protobuf-codegen = { path = "../protobuf-codegen" }
+log = { workspace = true }
+
+[dev-dependencies]
+tokio = { workspace = true, features = ["rt", "macros", "time", "io-std", "io-util"] }
+env_logger = { workspace = true }

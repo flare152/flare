@@ -1,0 +1,13 @@
+[package]
+name = "protobuf-codegen"
+version = "0.1.0"
+edition = "2021"
+description = "Generated protobuf code for Flare"
+license = "MIT"
+
+[dependencies]
+prost = { workspace = true }
+bytes = { workspace = true }
+
+[build-dependencies]
+prost-build = { workspace = true }
