@@ -14,7 +14,12 @@ tokio-tungstenite = { workspace = true }
 uuid = { workspace = true }
 protobuf-codegen = { path = "../protobuf-codegen" }
 log = { workspace = true }
+quinn = {workspace = true}
+rustls-pemfile = { workspace = true }
 
 [dev-dependencies]
 tokio = { workspace = true, features = ["rt", "macros", "time", "io-std", "io-util"] }
 env_logger = { workspace = true }
+rcgen = { workspace = true }
+rustls = { workspace = true }
+anyhow = { workspace = true }

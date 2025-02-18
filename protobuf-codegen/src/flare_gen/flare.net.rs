@@ -50,7 +50,7 @@ impl Platform {
     /// (if the ProtoBuf definition does not change) and safe for programmatic use.
     pub fn as_str_name(&self) -> &'static str {
         match self {
-            Self::Unknown => "PLATFORM_UNKNOWN",
+            Self::Unknown => "UNKNOWN",
             Self::Ios => "IOS",
             Self::Android => "ANDROID",
             Self::Windows => "WINDOWS",
@@ -65,7 +65,7 @@ impl Platform {
     /// Creates an enum from field names used in the ProtoBuf definition.
     pub fn from_str_name(value: &str) -> ::core::option::Option<Self> {
         match value {
-            "PLATFORM_UNKNOWN" => Some(Self::Unknown),
+            "UNKNOWN" => Some(Self::Unknown),
             "IOS" => Some(Self::Ios),
             "ANDROID" => Some(Self::Android),
             "WINDOWS" => Some(Self::Windows),

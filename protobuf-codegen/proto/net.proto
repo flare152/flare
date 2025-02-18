@@ -7,7 +7,7 @@ option java_multiple_files = true;
 option java_package = "flare.net";
 //设备平台
 enum Platform {
-	PLATFORM_UNKNOWN = 0;
+	UNKNOWN = 0;
 	IOS = 1;
 	ANDROID = 2;
 	WINDOWS = 3;

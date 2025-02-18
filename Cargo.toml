@@ -21,11 +21,12 @@ async-trait = "0.1"
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
 pilota = "0.11"
-quinn = "0.10"
+quinn = "0.11"
 tokio-tungstenite = { version = "0.20", features = ["connect"] }
 futures = "0.3"
 rcgen = "0.11"
-rustls = { version = "0.21", features = ["dangerous_configuration"] }
+rustls = { version = "0.23" }
+rustls-pemfile = "2.2"
 bytes = "1.10.0"
 url = "2.4"
 pin-project-lite = "0.2"
