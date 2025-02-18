@@ -87,7 +87,21 @@ async fn run_server() -> anyhow::Result<()> {
 }
 
 async fn handle_connection(conn: quinn::Connection, remote_addr: String) -> anyhow::Result<()> {
-    let conn = QuicConnection::new(conn, remote_addr).await?;
+    info!("Handling new connection from: {}", remote_addr);
+    
+    // 等待客户端打开双向流
+    let (mut send, mut recv) = conn.accept_bi().await
+        .map_err(|e| anyhow::anyhow!("Failed to accept stream: {}", e))?;
+    
+    // 读取客户端的初始消息
+    let mut hello = [0u8; 5];
+    recv.read_exact(&mut hello).await
+        .map_err(|e| anyhow::anyhow!("Failed to read hello: {}", e))?;
+    info!("Received hello: {}", String::from_utf8_lossy(&hello));
+
+    // 创建 QUIC 连接
+    let conn = QuicConnection::with_streams(conn, send, recv, remote_addr).await?;
+    info!("Connection established");
 
     while let Ok(msg) = conn.receive().await {
         info!("Received message: {:?}", msg);

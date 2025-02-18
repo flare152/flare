@@ -1,12 +1,13 @@
 use crate::connection::{Connection, ConnectionState};
 use crate::error::{ConnectionError, Result};
-use log::debug;
+use log::{debug, info};
 use prost::Message as ProstMessage;
 use protobuf_codegen::{Command, Message, Platform};
 use quinn::{Connection as QuinnConnection, RecvStream, SendStream};
 use std::sync::Arc;
 use std::time::Instant;
 use tokio::sync::Mutex;
+use tokio::io::{AsyncReadExt, AsyncWriteExt};
 
 #[derive(Clone)]
 pub struct QuicConnection {
@@ -35,9 +36,13 @@ impl QuicConnection {
         remote_addr: String,
     ) -> Result<Self> {
         // 打开双向流
-        let (send_stream, recv_stream) = conn
+        let (mut send, mut recv) = conn
             .open_bi()
             .await
+            .map_err(|e| ConnectionError::WebSocketError(e.to_string()))?;
+
+        // 等待服务器接受流
+        send.write_all(b"hello").await
             .map_err(|e| ConnectionError::WebSocketError(e.to_string()))?;
 
         Ok(Self {
@@ -51,8 +56,30 @@ impl QuicConnection {
             last_active: Arc::new(Mutex::new(Instant::now())),
             is_authenticated: Arc::new(Mutex::new(false)),
             conn: Arc::new(conn),
-            send_stream: Arc::new(Mutex::new(send_stream)),
-            recv_stream: Arc::new(Mutex::new(recv_stream)),
+            send_stream: Arc::new(Mutex::new(send)),
+            recv_stream: Arc::new(Mutex::new(recv)),
+        })
+    }
+
+    pub async fn with_streams(
+        conn: QuinnConnection,
+        send: SendStream,
+        recv: RecvStream,
+        remote_addr: String,
+    ) -> Result<Self> {
+        Ok(Self {
+            conn_id: uuid::Uuid::new_v4().to_string(),
+            client_id: Arc::new(Mutex::new(String::new())),
+            user_id: Arc::new(Mutex::new(String::new())),
+            platform: Arc::new(Mutex::new(Platform::Unknown)),
+            remote_addr,
+            language: Arc::new(Mutex::new(None)),
+            state: Arc::new(Mutex::new(ConnectionState::Connected)),
+            last_active: Arc::new(Mutex::new(Instant::now())),
+            is_authenticated: Arc::new(Mutex::new(false)),
+            conn: Arc::new(conn),
+            send_stream: Arc::new(Mutex::new(send)),
+            recv_stream: Arc::new(Mutex::new(recv)),
         })
     }
 
@@ -180,6 +207,10 @@ impl Connection for QuicConnection {
             .await
             .map_err(|e| ConnectionError::WebSocketError(e.to_string()))?;
 
+        // 确保数据被发送
+        stream.flush().await
+            .map_err(|e| ConnectionError::WebSocketError(e.to_string()))?;
+
         self.update_last_active().await;
         Ok(())
     }
@@ -194,6 +225,8 @@ impl Connection for QuicConnection {
             .await
             .map_err(|e| ConnectionError::WebSocketError(e.to_string()))?;
         let len = u32::from_be_bytes(len_bytes) as usize;
+
+        debug!("Receiving message with length: {}", len);
 
         // 读取消息内容
         let mut data = vec![0u8; len];
