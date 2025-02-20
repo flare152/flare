@@ -66,11 +66,6 @@ pub trait Context: Send + Sync {
     fn destroy(&mut self);
 }
 
-// 将泛型方法移到单独的 trait 中
-pub trait DataContext {
-    fn get_data_as<T: Message + Default>(&self) -> Result<T>;
-}
-
 pub trait TypeContext {
     fn contains<T: Send + Sync + 'static>(&self) -> bool;
     fn get<T: Send + Sync + 'static>(&self) -> Option<Arc<T>>;

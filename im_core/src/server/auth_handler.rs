@@ -80,7 +80,7 @@ impl DefAuthHandler {
 #[async_trait]
 impl AuthHandler for DefAuthHandler {
     async fn handle_login(&self, ctx: &AppContext) -> Result<Response> {
-        let req = ctx.get_data_as::<LoginReq>()?;
+        let req = Context::get_data_as::<LoginReq>(ctx)?;
         debug!("处理登录请求 - addr: {}, userid: {}", ctx.remote_addr(), req.user_id);
 
         // 这里可以添加实际的登录验证逻辑

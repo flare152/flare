@@ -177,23 +177,23 @@
 //     receive_task.abort();
 //     Ok(())
 // }
-//
-// #[tokio::main]
-// async fn main() -> anyhow::Result<()> {
-//     env_logger::init();
-//
-//     let args: Vec<String> = std::env::args().collect();
-//     if args.len() != 2 {
-//         println!("Usage: {} <server|client>", args[0]);
-//         return Ok(());
-//     }
-//
-//     match args[1].as_str() {
-//         "server" => run_server().await,
-//         "client" => run_client().await,
-//         _ => {
-//             println!("Invalid argument. Use 'server' or 'client'");
-//             Ok(())
-//         }
-//     }
-// }
+
+#[tokio::main]
+async fn main() -> anyhow::Result<()> {
+    env_logger::init();
+
+    let args: Vec<String> = std::env::args().collect();
+    if args.len() != 2 {
+        println!("Usage: {} <server|client>", args[0]);
+        return Ok(());
+    }
+
+    match args[1].as_str() {
+        "server" => run_server().await,
+        "client" => run_client().await,
+        _ => {
+            println!("Invalid argument. Use 'server' or 'client'");
+            Ok(())
+        }
+    }
+}

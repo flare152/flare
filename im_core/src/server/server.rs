@@ -40,7 +40,7 @@ impl ConnectionInfo {
         protocol: String,
     ) -> Self {
         Self {
-            conn_id: conn.get_id().to_string(),
+            conn_id: conn.id().to_string(),
             user_id,
             platform,
             language: None,
@@ -98,7 +98,7 @@ impl Server {
 
     /// 添加新连接
     pub async fn add_connection(&self, conn: Box<dyn Connection>) {
-        let conn_id = conn.get_id().to_string();
+        let conn_id = conn.id().to_string();
         let remote_addr = conn.remote_addr().to_string();
         info!("New connection from {}: {}", remote_addr, conn_id);
 
@@ -109,7 +109,7 @@ impl Server {
                     conn.clone_box(),
                     login_resp.user_id.clone(),
                     conn.platform(),
-                    conn.get_id().to_string(),
+                    conn.id().to_string(),
                     conn.remote_addr().to_string(),
                     conn.protocol().to_string(),
                 );
@@ -248,7 +248,7 @@ impl Server {
                         .command(Some(Command::Login))
                         .data(msg.data.clone())
                         .client_id(msg.client_id.clone()),
-                    conn.get_id().to_string(),
+                    conn.id().to_string(),
                     msg.client_id.clone(),
                 ).await.ok_or_else(|| FlareErr::invalid_params("Failed to build auth context"))?;
 
@@ -272,18 +272,23 @@ impl Server {
 
     /// 处理连接
     async fn handle_connection(&self, info: ConnectionInfo) {
-        let server = self.clone(); // 克隆 Arc<Server>
-        let last_heartbeat = info.last_heartbeat.clone();
         let conn_id = info.conn_id.clone();
+        let last_heartbeat = info.last_heartbeat.clone();
+        let handler = self.handler.clone();
+        let connections = self.connections.clone();
+        let info = info.clone();
+        let server = Arc::new(ServerHandle {
+            handler,
+            connections,
+        });
 
         tokio::spawn(async move {
-            // 使用克隆的 server 而不是 self
             while let Ok(msg) = info.receive().await {
                 *last_heartbeat.lock().await = chrono::Utc::now();
 
                 match Command::try_from(msg.command) {
                     Ok(comm) => {
-                        let ctx = match self.build_context(
+                        let ctx = match server.build_context(
                             AppContextBuilder::new()
                                 .user_id(info.user_id.clone())
                                 .remote_addr(info.remote_addr.clone())
@@ -302,15 +307,14 @@ impl Server {
                         // 处理消息
                         match server.handler.handle_command(&ctx).await {
                             Ok(response) => {
-                                if let Err(e) = self.send_response(info.conn_id.clone(),msg.client_id,response).await {
+                                if let Err(e) = server.send_response(info.conn_id.clone(), msg.client_id, response).await {
                                     error!("Failed to send response: {}", e);
                                     break;
                                 }
                             }
                             Err(e) => {
                                 error!("Message handling error: {}", e);
-                                // 发送错误响应
-                                if let Err(e) = self.send_response(info.conn_id.clone(),msg.client_id,Response {
+                                if let Err(e) = server.send_response(info.conn_id.clone(), msg.client_id, Response {
                                     code: ResCode::InternalError as i32,
                                     message: e.to_string(),
                                     data: Vec::new(),
@@ -323,8 +327,7 @@ impl Server {
                     }
                     Err(e) => {
                         error!("Invalid command: {}", e);
-                        // 发送无效命令响应
-                        if let Err(e) = self.send_response( info.conn_id.clone(),msg.client_id,Response {
+                        if let Err(e) = server.send_response(info.conn_id.clone(), msg.client_id, Response {
                             code: ResCode::InvalidCommand as i32,
                             message: "Invalid command".into(),
                             data: Vec::new(),
@@ -336,7 +339,6 @@ impl Server {
                 }
             }
 
-            // 连接断开，清理资源
             let mut conns = server.connections.lock().await;
             conns.remove(&conn_id);
             info!("Connection closed: {}", conn_id);
@@ -430,5 +432,32 @@ impl Server {
 impl Default for Server {
     fn default() -> Self {
         Self::new(ServerMessageHandler::default())
+    }
+}
+
+// 新增一个辅助结构体来处理生命周期问题
+struct ServerHandle {
+    handler: Arc<ServerMessageHandler>,
+    connections: Arc<Mutex<HashMap<String, ConnectionInfo>>>,
+}
+
+impl ServerHandle {
+    async fn build_context(&self, builder: AppContextBuilder, conn_id: String, client_msg_id: String) -> Option<AppContext> {
+        builder.with_conn_id(conn_id).with_client_msg_id(client_msg_id).build().ok()
+    }
+
+    async fn send_response(&self, conn_id: String, client_msg_id: String, response: Response) -> Result<()> {
+        let conn = self.connections.lock().await;
+        if let Some(info) = conn.get(conn_id.as_str()) {
+            info.send(ProtoMessage {
+                command: Command::ServerResponse as i32,
+                data: response.encode_to_vec(),
+                client_id: client_msg_id,
+                ..Default::default()
+            }).await
+        } else {
+            debug!("Connection not found: {}", conn_id);
+            Err(FlareErr::ConnectionNotFound)
+        }
     }
 } 

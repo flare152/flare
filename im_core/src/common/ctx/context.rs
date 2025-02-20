@@ -16,8 +16,9 @@ pub struct AppContext {
     platform: Option<Platform>,
     client_id: Option<String>,     // 客户端标识
     language: Option<String>,
+    conn_id: String,
+    client_msg_id: String,
 }
-
 #[async_trait::async_trait]
 impl Context for AppContext {
     fn remote_addr(&self) -> &str {
@@ -52,8 +53,9 @@ impl Context for AppContext {
         self.data = data;
     }
 
-    fn get_data_as<T: Message + Default>(&self) -> Result<T>{
-        Ok(T::decode(&self.data[..]))
+    fn get_data_as<T: Message + Default>(&self) -> Result<T> {
+        T::decode(&self.data[..])
+            .map_err(|e| FlareErr::DecodeError(e))
     }
     fn msg_id(&self) -> Result<String> {
         String::from_utf8(self.data.clone())
@@ -119,15 +121,11 @@ impl Context for AppContext {
         self.platform = None;
         self.client_id = None;
         self.language = None;
+        self.conn_id = String::new();
+        self.client_msg_id = String::new();
     }
 }
 
-impl DataContext for AppContext {
-    fn get_data_as<T: Message + Default>(&self) -> Result<T> {
-        T::decode(&self.data[..])
-            .map_err(|e| FlareErr::DecodeError(e))
-    }
-}
 
 impl TypeContext for AppContext {
     fn contains<T: Send + Sync + 'static>(&self) -> bool {
@@ -158,6 +156,8 @@ impl Clone for AppContext {
             platform: self.platform.clone(),
             client_id: self.client_id.clone(),
             language: self.language.clone(),
+            conn_id: self.conn_id.clone(),
+            client_msg_id: self.client_msg_id.clone(),
         }
     }
 }
@@ -172,6 +172,8 @@ pub struct AppContextBuilder {
     user_id: Option<String>,
     platform: Option<Platform>,
     client_id: Option<String>,
+    client_msg_id: Option<String>,
+    conn_id: Option<String>,
 }
 
 impl AppContextBuilder {
@@ -221,6 +223,14 @@ impl AppContextBuilder {
         }
         self
     }
+    pub fn with_conn_id(mut self, conn_id: String) -> Self {
+        self.conn_id = Some(conn_id);
+        self
+    }
+    pub fn with_client_msg_id(mut self, client_msg_id: String) -> Self {
+        self.client_msg_id = Some(client_msg_id);
+        self
+    }
 
     pub fn build(self) -> Result<AppContext> {
         Ok(AppContext {
@@ -232,6 +242,8 @@ impl AppContextBuilder {
             platform: self.platform,
             client_id: self.client_id,
             language: self.language,
+            conn_id: self.conn_id.unwrap_or_else(String::new),
+            client_msg_id: self.client_msg_id.unwrap_or_else(String::new),
         })
     }
 }

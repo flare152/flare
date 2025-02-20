@@ -33,11 +33,11 @@ pub trait Connection: Send + Sync {
     /// * `bool` - true 表示连接活跃，false 表示连接不活跃
     async fn is_active(&self, timeout: Duration) -> bool;
     /// 发送消息
-    fn send(&self, msg: ProtoMessage) -> Pin<Box<dyn Future<Output = Result<()>> + Send>>;
+    fn send(&self, msg: ProtoMessage) -> Pin<Box<dyn Future<Output = Result<()>> + Send + '_>>;
     /// 接收消息
-    fn receive(&self) -> Pin<Box<dyn Future<Output = Result<ProtoMessage>> + Send>>;
+    fn receive(&self) -> Pin<Box<dyn Future<Output = Result<ProtoMessage>> + Send + '_>>;
     /// 关闭连接
-    fn close(&self) -> Pin<Box<dyn Future<Output = Result<()>> + Send>>;
+    fn close(&self) -> Pin<Box<dyn Future<Output = Result<()>> + Send + '_>>;
     /// 克隆
     fn clone_box(&self) -> Box<dyn Connection>;
 }

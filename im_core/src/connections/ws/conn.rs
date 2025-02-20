@@ -97,7 +97,7 @@ where
         true
     }
 
-    fn send(&self, msg: Message) -> Pin<Box<dyn Future<Output = Result<()>> + Send>> {
+    fn send(&self, msg: Message) -> Pin<Box<dyn Future<Output = Result<()>> + Send + '_>> {
         let writer = self.writer.clone();
         Box::pin(async move {
             debug!("Sending message: command={:?}, data_len={}", 
@@ -109,14 +109,14 @@ where
             writer.lock().await
                 .send(tungstenite::Message::Binary(data))
                 .await
-                .map_err(|e| FlareErr::ConnectionError(e.to_string()))?;
+                .map_err(|_| FlareErr::ConnectionError("Failed to send message".to_string()))?;
 
             self.update_last_active().await;
             Ok(())
         })
     }
 
-    fn receive(&self) -> Pin<Box<dyn Future<Output = Result<Message>> + Send>> {
+    fn receive(&self) -> Pin<Box<dyn Future<Output = Result<Message>> + Send + '_>> {
         let reader = self.reader.clone();
         Box::pin(async move {
             if let Some(msg) = Pin::new(&mut *reader.lock().await).next().await {
@@ -163,7 +163,7 @@ where
         })
     }
 
-    fn close(&self) -> Pin<Box<dyn Future<Output = Result<()>> + Send>> {
+    fn close(&self) -> Pin<Box<dyn Future<Output = Result<()>> + Send + '_>> {
         Box::pin(async move {
             *self.state.lock().await = ConnectionState::Disconnected;
 
@@ -183,6 +183,14 @@ where
     }
 
     fn clone_box(&self) -> Box<dyn Connection> {
-        Box::new(self.clone())
+        Box::new(WsConnection {
+            conn_id: self.conn_id.clone(),
+            protocol: self.protocol.clone(),
+            remote_addr: self.remote_addr.clone(),
+            state: self.state.clone(),
+            last_active: self.last_active.clone(),
+            writer: self.writer.clone(),
+            reader: self.reader.clone(),
+        })
     }
 }

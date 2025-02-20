@@ -2,6 +2,7 @@ use crate::client::config::ClientConfig;
 use crate::client::handlers::ClientMessageHandler;
 use crate::client::message_handler::DefMessageHandler;
 use crate::client::sys_handler::DefClientSystemHandler;
+use crate::common::error::error::FlareErr;
 use crate::common::error::error::Result;
 use crate::connections::Connection;
 use log::{error, warn};
@@ -290,7 +291,7 @@ where
     pub async fn send_wait_timeout(&self, msg: ProtoMessage, timeout: Duration) -> Result<Response> {
         tokio::time::timeout(timeout, self.send_wait(msg))
             .await
-            .map_err(|_| anyhow::anyhow!("Request timeout").into())?
+            .map_err(|_| FlareErr::ConnectionError("Request timeout".to_string()))?
     }
 
     /// 关闭连接

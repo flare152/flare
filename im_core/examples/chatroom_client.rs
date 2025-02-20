@@ -1,6 +1,9 @@
-use im_core::client::{Client, ClientConfig, MessageHandler, ClientState};
-use im_core::common::error::error::{Result, ConnectionError};
-use im_core::connections::ws::WsConnection;
+use im_core::client::client::{Client, ClientState};
+use im_core::client::config::ClientConfig;
+use im_core::client::message_handler::MessageHandler;
+use im_core::common::error::error::{Result, FlareErr};
+use im_core::connections::connection::Connection;
+use im_core::connections::ws::conn::WsConnection;
 use protobuf_codegen::{Command, Message};
 use tokio_tungstenite::connect_async;
 use std::io::{self, Write};
@@ -30,10 +33,10 @@ impl MessageHandler for ChatHandler {
 
 async fn create_connection() -> Result<Box<dyn im_core::Connection>> {
     let url = url::Url::parse("ws://127.0.0.1:8080")
-        .map_err(|e| ConnectionError::WebSocketError(format!("Invalid URL: {}", e)))?;
+        .map_err(|e| FlareErr::ConnectionError(format!("Invalid URL: {}", e)))?;
     
     let (ws_stream, _) = connect_async(url).await
-        .map_err(|e| ConnectionError::WebSocketError(format!("WebSocket connection failed: {}", e)))?;
+        .map_err(|e| FlareErr::ConnectionError(format!("WebSocket connection failed: {}", e)))?;
     
     Ok(Box::new(WsConnection::new(ws_stream, "localhost".to_string())))
 }

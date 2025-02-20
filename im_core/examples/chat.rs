@@ -4,20 +4,23 @@ use im_core::client::client::{Client, ClientState};
 use im_core::client::config::ClientConfig;
 use im_core::client::message_handler::MessageHandler;
 use im_core::client::sys_handler::ClientSystemHandler;
-use im_core::common::ctx::AppContext;
-use im_core::common::error::error::Result;
+use im_core::common::ctx::Context;
+use im_core::common::error::error::FlareErr;
 use im_core::connections::{Connection, WsConnection};
 use im_core::server::auth_handler::AuthHandler;
 use im_core::server::handlers::ServerMessageHandler;
 use im_core::server::server::Server;
 use im_core::server::server_handler::ServerHandler;
 use im_core::server::sys_handler::SystemHandler;
-use log::{debug, info};
+use log::{debug, info, error};
 use protobuf_codegen::{Command, Message as ProtoMessage, Platform, Response};
 use std::io::{self, Write};
 use std::sync::Arc;
 use tokio::net::{TcpListener, TcpStream};
 use tokio_tungstenite::{accept_async, connect_async};
+use std::pin::Pin;
+use std::future::Future;
+use url;
 
 // 自定义客户端消息处理器
 struct ChatClientHandler;
@@ -92,7 +95,7 @@ struct ChatServerHandler;
 #[async_trait]
 impl ServerHandler for ChatServerHandler {
     async fn handle_send_message(&self, ctx: &AppContext) -> Result<Response> {
-        let msg = ctx.string_data()?;
+        let msg = Context::string_data(ctx)?;
         let prefix = "你好, ".to_string();
         let content = format!("{}{}", prefix, msg);
         
@@ -103,45 +106,50 @@ impl ServerHandler for ChatServerHandler {
         })
     }
 
-    async fn handle_pull_message(&self, ctx: &AppContext) -> Result<Response> {
+    async fn handle_pull_message(&self, _ctx: &AppContext) -> Result<Response> {
         debug!("处理拉取消息请求");
         Ok(Response::default())
     }
 
-    async fn handle_request(&self, ctx: &AppContext) -> Result<Response> {
+    async fn handle_request(&self, _ctx: &AppContext) -> Result<Response> {
         debug!("处理数据请求");
         Ok(Response::default())
     }
 
-    async fn handle_ack(&self, ctx: &AppContext) -> Result<Response> {
+    async fn handle_ack(&self, _ctx: &AppContext) -> Result<Response> {
         debug!("处理消息确认");
         Ok(Response::default())
     }
 }
 
-async fn run_server() {
+async fn run_server() -> Result<()> {
     let addr = "127.0.0.1:8080";
-    let listener = TcpListener::bind(addr).await.unwrap();
+    let listener = TcpListener::bind(addr).await?;
     info!("聊天服务器监听端口: {}", addr);
 
     let server = Server::new(ServerMessageHandler::default());
 
     while let Ok((stream, addr)) = listener.accept().await {
         info!("新客户端连接: {}", addr);
-        let ws_stream = accept_async(stream).await.unwrap();
+        let ws_stream = accept_async(stream).await?;
         let conn = Box::new(WsConnection::new(ws_stream, addr.to_string()));
         server.add_connection(conn).await;
     }
+    Ok(())
 }
 
-async fn run_client() {
-    let url = "ws://127.0.0.1:8080";
-    let (ws_stream, _) = connect_async(url).await.unwrap();
-    
+async fn run_client() -> Result<()> {
+    let url = url::Url::parse("ws://127.0.0.1:8080").unwrap();
     let config = ClientConfig::default();
-    let connector = || Box::pin(async { 
-        Ok(Box::new(WsConnection::new(ws_stream, "client".to_string())) as Box<dyn Connection>)
-    });
+
+    let connector = || {
+        let url = url.clone();
+        Box::pin(async move {
+            let (ws_stream, _) = connect_async(url).await
+                .map_err(|e| FlareErr::ConnectionError(e.to_string()))?;
+            Ok(Box::new(WsConnection::new(ws_stream, "127.0.0.1:8080".to_string())) as Box<dyn Connection>)
+        }) as Pin<Box<dyn Future<Output = Result<Box<dyn Connection>>> + Send + Sync>>
+    };
 
     let client = Client::new(connector, config);
     info!("已连接到服务器: {}", url);
@@ -177,6 +185,7 @@ async fn run_client() {
     }
 
     client.close().await.unwrap();
+    Ok(())
 }
 
 #[tokio::main]
@@ -190,8 +199,12 @@ async fn main() {
     }
 
     match args[1].as_str() {
-        "server" => run_server().await,
-        "client" => run_client().await,
+        "server" => if let Err(e) = run_server().await {
+            error!("服务器错误: {}", e);
+        },
+        "client" => if let Err(e) = run_client().await {
+            error!("客户端错误: {}", e);
+        },
         _ => println!("无效参数。请使用 'server' 或 'client'"),
     }
 }

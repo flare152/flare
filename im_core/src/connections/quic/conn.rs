@@ -115,7 +115,7 @@ impl Connection for QuicConnection {
         return true
     }
 
-    fn send(&self, msg: Message) -> Pin<Box<dyn Future<Output = Result<()>> + Send>> {
+    fn send(&self, msg: Message) -> Pin<Box<dyn Future<Output = Result<()>> + Send + '_>> {
         let send_stream = self.send_stream.clone();
         Box::pin(async move {
             debug!("Sending message: command={:?}, data_len={}", 
@@ -146,7 +146,7 @@ impl Connection for QuicConnection {
         })
     }
 
-    fn receive(&self) -> Pin<Box<dyn Future<Output = Result<Message>> + Send>> {
+    fn receive(&self) -> Pin<Box<dyn Future<Output = Result<Message>> + Send + '_>> {
         let recv_stream = self.recv_stream.clone();
         Box::pin(async move {
             // 读取长度前缀
@@ -179,18 +179,18 @@ impl Connection for QuicConnection {
         })
     }
 
-    fn close(&self) -> Pin<Box<dyn Future<Output = Result<()>> + Send>> {
+    fn close(&self) -> Pin<Box<dyn Future<Output = Result<()>> + Send + '_>> {
+        let state = self.state.clone();
+        let send_stream = self.send_stream.clone();
+        let conn = self.conn.clone();
         Box::pin(async move {
-            *self.state.lock().await = ConnectionState::Disconnected;
+            *state.lock().await = ConnectionState::Disconnected;
             
-            // 关闭发送流
-            if let Ok(mut send) = self.send_stream.try_lock() {
-                let _ = send.finish().await;
+            if let Ok(mut send) = send_stream.try_lock() {
+                let _ = send.finish();
             }
             
-            // 关闭 QUIC 连接
-            self.conn.close(0u32.into(), b"Normal closure");
-            
+            conn.close(0u32.into(), b"Normal closure");
             Ok(())
         })
     }
