@@ -10,7 +10,7 @@ pub struct Message {
     pub data: ::prost::alloc::vec::Vec<u8>,
     /// 客户端消息id
     #[prost(string, tag = "3")]
-    pub cient_id: ::prost::alloc::string::String,
+    pub client_id: ::prost::alloc::string::String,
 }
 /// 响应消息
 #[derive(Clone, PartialEq, ::prost::Message)]
@@ -21,6 +21,32 @@ pub struct Response {
     pub message: ::prost::alloc::string::String,
     #[prost(bytes = "vec", tag = "3")]
     pub data: ::prost::alloc::vec::Vec<u8>,
+}
+/// 登录请求
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct LoginReq {
+    /// 用户id
+    #[prost(string, tag = "1")]
+    pub user_id: ::prost::alloc::string::String,
+    /// 平台
+    #[prost(enumeration = "Platform", tag = "2")]
+    pub platform: i32,
+    /// 客户端id
+    #[prost(string, tag = "3")]
+    pub client_id: ::prost::alloc::string::String,
+    /// token
+    #[prost(string, tag = "4")]
+    pub token: ::prost::alloc::string::String,
+}
+/// 登录响应
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct LoginResp {
+    /// 用户id
+    #[prost(string, tag = "1")]
+    pub user_id: ::prost::alloc::string::String,
+    /// 语言
+    #[prost(string, tag = "2")]
+    pub language: ::prost::alloc::string::String,
 }
 /// 设备平台
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, ::prost::Enumeration)]
@@ -124,6 +150,8 @@ pub enum Command {
     ServerPushData = 33,
     /// 服务端确认接收
     ServerAck = 34,
+    /// 服务端响应
+    ServerResponse = 35,
 }
 impl Command {
     /// String value of the enum field names used in the ProtoBuf definition.
@@ -150,6 +178,7 @@ impl Command {
             Self::ServerPushNotice => "SERVER_PUSH_NOTICE",
             Self::ServerPushData => "SERVER_PUSH_DATA",
             Self::ServerAck => "SERVER_ACK",
+            Self::ServerResponse => "SERVER_RESPONSE",
         }
     }
     /// Creates an enum from field names used in the ProtoBuf definition.
@@ -173,6 +202,7 @@ impl Command {
             "SERVER_PUSH_NOTICE" => Some(Self::ServerPushNotice),
             "SERVER_PUSH_DATA" => Some(Self::ServerPushData),
             "SERVER_ACK" => Some(Self::ServerAck),
+            "SERVER_RESPONSE" => Some(Self::ServerResponse),
             _ => None,
         }
     }
@@ -183,26 +213,50 @@ impl Command {
 pub enum ResCode {
     /// 成功
     Success = 0,
-    /// 消息内容解码错误
-    DecodeErr = 1,
-    /// 消息内容编码错误
-    EncodeErr = 2,
-    /// 参数错
-    ArgsErr = 3,
-    /// 找不到处理方法
-    NotFoundHandler = 4,
-    /// 消息发送失败
-    InternalServiceErr = 5,
-    /// 发送失败
-    SendErr = 6,
+    /// 未知错误
+    UnknownCode = 1,
+    /// 连接关闭
+    ConnectionClosed = 2,
+    /// 连接不存在
+    ConnectionNotFound = 3,
+    /// 解码错误
+    DecodeError = 4,
+    /// 编码错误
+    EncodeError = 5,
+    /// WebSocket错误
+    WebsocketError = 6,
+    /// 无效消息类型
+    InvalidMessageType = 7,
     /// 业务错误
-    BusinessErr = 7,
-    /// 连接错误
-    ConnectionError = 8,
+    BusinessError = 8,
+    /// 协议错误
+    ProtocolError = 9,
+    /// 认证错误
+    AuthError = 10,
+    /// 未找到处理器
+    NotFoundHandler = 11,
+    /// 推送客户端错误
+    PushToClientError = 12,
+    /// 发送消息错误
+    SendMessageError = 13,
+    /// 无效参数
+    InvalidParams = 14,
     /// 无效命令
-    InvalidCommand = 9,
+    InvalidCommand = 15,
     /// 未授权
-    Unauthorized = 10,
+    Unauthorized = 16,
+    /// 内部错误
+    InternalError = 17,
+    /// 无效状态
+    InvalidState = 18,
+    /// 超时
+    Timeout = 19,
+    /// 资源错误
+    ResourceError = 20,
+    /// 连接错误
+    ConnectionError = 21,
+    /// 参数错误
+    ArgsError = 22,
 }
 impl ResCode {
     /// String value of the enum field names used in the ProtoBuf definition.
@@ -212,32 +266,56 @@ impl ResCode {
     pub fn as_str_name(&self) -> &'static str {
         match self {
             Self::Success => "SUCCESS",
-            Self::DecodeErr => "DECODE_ERR",
-            Self::EncodeErr => "ENCODE_ERR",
-            Self::ArgsErr => "ARGS_ERR",
+            Self::UnknownCode => "UNKNOWN_CODE",
+            Self::ConnectionClosed => "CONNECTION_CLOSED",
+            Self::ConnectionNotFound => "CONNECTION_NOT_FOUND",
+            Self::DecodeError => "DECODE_ERROR",
+            Self::EncodeError => "ENCODE_ERROR",
+            Self::WebsocketError => "WEBSOCKET_ERROR",
+            Self::InvalidMessageType => "INVALID_MESSAGE_TYPE",
+            Self::BusinessError => "BUSINESS_ERROR",
+            Self::ProtocolError => "PROTOCOL_ERROR",
+            Self::AuthError => "AUTH_ERROR",
             Self::NotFoundHandler => "NOT_FOUND_HANDLER",
-            Self::InternalServiceErr => "INTERNAL_SERVICE_ERR",
-            Self::SendErr => "SEND_ERR",
-            Self::BusinessErr => "BUSINESS_ERR",
-            Self::ConnectionError => "CONNECTION_ERROR",
+            Self::PushToClientError => "PUSH_TO_CLIENT_ERROR",
+            Self::SendMessageError => "SEND_MESSAGE_ERROR",
+            Self::InvalidParams => "INVALID_PARAMS",
             Self::InvalidCommand => "INVALID_COMMAND",
             Self::Unauthorized => "UNAUTHORIZED",
+            Self::InternalError => "INTERNAL_ERROR",
+            Self::InvalidState => "INVALID_STATE",
+            Self::Timeout => "TIMEOUT",
+            Self::ResourceError => "RESOURCE_ERROR",
+            Self::ConnectionError => "CONNECTION_ERROR",
+            Self::ArgsError => "ARGS_ERROR",
         }
     }
     /// Creates an enum from field names used in the ProtoBuf definition.
     pub fn from_str_name(value: &str) -> ::core::option::Option<Self> {
         match value {
             "SUCCESS" => Some(Self::Success),
-            "DECODE_ERR" => Some(Self::DecodeErr),
-            "ENCODE_ERR" => Some(Self::EncodeErr),
-            "ARGS_ERR" => Some(Self::ArgsErr),
+            "UNKNOWN_CODE" => Some(Self::UnknownCode),
+            "CONNECTION_CLOSED" => Some(Self::ConnectionClosed),
+            "CONNECTION_NOT_FOUND" => Some(Self::ConnectionNotFound),
+            "DECODE_ERROR" => Some(Self::DecodeError),
+            "ENCODE_ERROR" => Some(Self::EncodeError),
+            "WEBSOCKET_ERROR" => Some(Self::WebsocketError),
+            "INVALID_MESSAGE_TYPE" => Some(Self::InvalidMessageType),
+            "BUSINESS_ERROR" => Some(Self::BusinessError),
+            "PROTOCOL_ERROR" => Some(Self::ProtocolError),
+            "AUTH_ERROR" => Some(Self::AuthError),
             "NOT_FOUND_HANDLER" => Some(Self::NotFoundHandler),
-            "INTERNAL_SERVICE_ERR" => Some(Self::InternalServiceErr),
-            "SEND_ERR" => Some(Self::SendErr),
-            "BUSINESS_ERR" => Some(Self::BusinessErr),
-            "CONNECTION_ERROR" => Some(Self::ConnectionError),
+            "PUSH_TO_CLIENT_ERROR" => Some(Self::PushToClientError),
+            "SEND_MESSAGE_ERROR" => Some(Self::SendMessageError),
+            "INVALID_PARAMS" => Some(Self::InvalidParams),
             "INVALID_COMMAND" => Some(Self::InvalidCommand),
             "UNAUTHORIZED" => Some(Self::Unauthorized),
+            "INTERNAL_ERROR" => Some(Self::InternalError),
+            "INVALID_STATE" => Some(Self::InvalidState),
+            "TIMEOUT" => Some(Self::Timeout),
+            "RESOURCE_ERROR" => Some(Self::ResourceError),
+            "CONNECTION_ERROR" => Some(Self::ConnectionError),
+            "ARGS_ERROR" => Some(Self::ArgsError),
             _ => None,
         }
     }

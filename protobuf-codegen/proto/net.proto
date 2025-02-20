@@ -43,27 +43,40 @@ enum Command {
 	SERVER_PUSH_NOTICE = 32; // 服务端推送通知
 	SERVER_PUSH_DATA = 33; // 服务端推送数据
 	SERVER_ACK = 34; // 服务端确认接收
+	SERVER_RESPONSE = 35; // 服务端响应
 }
 // 消息响应码
 enum ResCode {
-	SUCCESS = 0; //成功
-	DECODE_ERR = 1; //消息内容解码错误
-	ENCODE_ERR = 2; //消息内容编码错误
-	ARGS_ERR = 3; //参数错
-	NOT_FOUND_HANDLER = 4; //找不到处理方法
-	INTERNAL_SERVICE_ERR = 5; //消息发送失败
-	SEND_ERR = 6; //发送失败
-	BUSINESS_ERR = 7; //业务错误
-	CONNECTION_ERROR = 8; //连接错误
-	INVALID_COMMAND = 9; //无效命令
-	UNAUTHORIZED = 10; //未授权
+	SUCCESS = 0; // 成功
+	UNKNOWN_CODE = 1; // 未知错误
+	CONNECTION_CLOSED = 2; // 连接关闭
+	CONNECTION_NOT_FOUND = 3; // 连接不存在
+	DECODE_ERROR = 4; // 解码错误
+	ENCODE_ERROR = 5; // 编码错误
+	WEBSOCKET_ERROR = 6; // WebSocket错误
+	INVALID_MESSAGE_TYPE = 7; // 无效消息类型
+	BUSINESS_ERROR = 8; // 业务错误
+	PROTOCOL_ERROR = 9; // 协议错误
+	AUTH_ERROR = 10; // 认证错误
+	NOT_FOUND_HANDLER = 11; // 未找到处理器
+	PUSH_TO_CLIENT_ERROR = 12; // 推送客户端错误
+	SEND_MESSAGE_ERROR = 13; // 发送消息错误
+	INVALID_PARAMS = 14; // 无效参数
+	INVALID_COMMAND = 15; // 无效命令
+	UNAUTHORIZED = 16; // 未授权
+	INTERNAL_ERROR = 17; // 内部错误
+	INVALID_STATE = 18; // 无效状态
+	TIMEOUT = 19; // 超时
+	RESOURCE_ERROR = 20; // 资源错误
+	CONNECTION_ERROR = 21; // 连接错误
+	ARGS_ERROR = 22; // 参数错误
 }
 
 // 请求消息
 message Message {
 	Command command = 1; //命令
 	bytes data = 2; //消息体
-	string cient_id = 3; //客户端消息id
+	string client_id = 3; //客户端消息id
 }
 
 // 响应消息
@@ -71,4 +84,17 @@ message Response {
 	int32 code = 1;
 	string message = 2;
 	bytes data = 3;
+}
+
+// 登录请求
+message LoginReq {
+	string user_id = 1; //用户id
+	Platform platform = 2; //平台
+	string client_id = 3; //客户端id
+	string token = 4; //token
+}
+// 登录响应
+message LoginResp {
+	string user_id = 1; //用户id
+	string language = 2; //语言
 }

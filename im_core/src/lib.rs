@@ -1,7 +1,6 @@
-pub mod connection;
-pub mod error;
-pub mod ws;
-pub mod quic;
+pub mod connections;
+pub mod server;
+pub mod client;
+pub mod common;
 
-pub use connection::{Connection, ConnectionState};
-pub use error::{ConnectionError, Result};
+

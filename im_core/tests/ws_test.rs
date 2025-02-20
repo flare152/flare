@@ -1,4 +1,4 @@
-use im_core::ws::WsConnection;
+use im_core::connections::::WsConnection;
 use im_core::{Connection, ConnectionState};
 use protobuf_codegen::{Command, Message, Platform};
 use std::time::Duration;
