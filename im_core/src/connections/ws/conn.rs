@@ -1,3 +1,4 @@
+use std::future::Future;
 use crate::connections::connection::{Connection, ConnectionState};
 use crate::common::error::error::{FlareErr, Result};
 use futures::stream::{SplitSink, SplitStream};
@@ -8,6 +9,7 @@ use protobuf_codegen::{Command, Message, Platform};
 use std::pin::Pin;
 use std::sync::Arc;
 use std::time::{Duration, Instant};
+use async_trait::async_trait;
 use tokio::sync::Mutex;
 use tokio_tungstenite::{tungstenite, WebSocketStream};
 
@@ -181,14 +183,6 @@ where
     }
 
     fn clone_box(&self) -> Box<dyn Connection> {
-        Box::new(WsConnection {
-            protocol: self.protocol.clone(),
-            conn_id: self.conn_id.clone(),
-            remote_addr: self.remote_addr.clone(),
-            state: self.state.clone(),
-            last_active: self.last_active.clone(),
-            writer: self.writer.clone(),
-            reader: self.reader.clone(),
-        })
+        Box::new(self.clone())
     }
 }

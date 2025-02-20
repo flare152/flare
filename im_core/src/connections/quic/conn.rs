@@ -124,4 +124,8 @@ impl Connection for QuicConnection {
             Ok(())
         })
     }
+
+    fn clone_box(&self) -> Box<dyn Connection> {
+        Box::new(self.clone())
+    }
 } 
