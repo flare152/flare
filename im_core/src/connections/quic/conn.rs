@@ -146,6 +146,7 @@ impl Connection for QuicConnection {
 
     fn receive(&self) -> Pin<Box<dyn Future<Output = Result<Message>> + Send + '_>> {
         let recv_stream = self.recv_stream.clone();
+        debug!("Receiving message");
         Box::pin(async move {
             // 读取长度前缀
             let mut len_bytes = [0u8; 4];

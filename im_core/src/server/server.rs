@@ -289,6 +289,7 @@ impl Server {
 
         tokio::spawn(async move {
             while let Ok(msg) = info.receive().await {
+                debug!("Received message from {}: {:?}", info.remote_addr, msg);
                 *last_heartbeat.lock().await = chrono::Utc::now();
 
                 match Command::try_from(msg.command) {

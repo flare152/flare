@@ -1,190 +1,138 @@
-// use im_core::Connection;
-// use im_core::connections::::QuicConnection;
-// use protobuf_codegen::{Command, Message};
-// use std::io::{self, Write, BufReader};
-// use std::net::SocketAddr;
-// use std::sync::Arc;
-// use std::fs::File;
-// use std::path::Path;
-// use env_logger;
-// use log::info;
-// use quinn::{Endpoint, TransportConfig, ServerConfig, ClientConfig};
-// use rustls::{RootCertStore, ServerConfig as RustlsServerConfig, ClientConfig as RustlsClientConfig};
-// use rustls::pki_types::{CertificateDer, PrivateKeyDer};
-// use im_core::connections::::config::{create_client_config, create_server_config};
-// use im_core::connections::QuicConnection;
-//
-// fn load_certs(path: &str) -> std::io::Result<Vec<CertificateDer<'static>>> {
-//     let file = File::open(Path::new(path))?;
-//     let mut reader = BufReader::new(file);
-//     let certs: Vec<_> = rustls_pemfile::certs(&mut reader)
-//         .filter_map(|result| result.ok())
-//         .collect();
-//     if certs.is_empty() {
-//         return Err(io::Error::new(io::ErrorKind::InvalidData, "no certificates found"));
-//     }
-//     Ok(certs)
-// }
-//
-// fn load_private_key(path: &str) -> std::io::Result<PrivateKeyDer<'static>> {
-//     let file = File::open(path)?;
-//     let mut reader = BufReader::new(file);
-//
-//     if let Some(key) = rustls_pemfile::pkcs8_private_keys(&mut reader)
-//         .filter_map(|result| result.ok())
-//         .next()
-//     {
-//         return Ok(PrivateKeyDer::Pkcs8(key));
-//     }
-//
-//     let mut reader = BufReader::new(File::open(path)?);
-//     if let Some(key) = rustls_pemfile::rsa_private_keys(&mut reader)
-//         .filter_map(|result| result.ok())
-//         .next()
-//     {
-//         return Ok(PrivateKeyDer::Pkcs1(key));
-//     }
-//
-//     Err(io::Error::new(io::ErrorKind::InvalidData, "no private key found"))
-// }
-//
-// fn configure_server() -> anyhow::Result<(Endpoint, SocketAddr)> {
-//     let server_config = create_server_config("certs/cert.pem", "certs/key.pem")?;
-//     let addr = "127.0.0.1:8443".parse()?;
-//     let endpoint = Endpoint::server(server_config, addr)?;
-//     Ok((endpoint, addr))
-// }
-//
-// fn configure_client() -> anyhow::Result<Endpoint> {
-//     let mut client_config = create_client_config("certs/cert.pem")?;
-//
-//     let mut endpoint = Endpoint::client("0.0.0.0:0".parse()?)?;
-//     endpoint.set_default_client_config(client_config);
-//     Ok(endpoint)
-// }
-//
-// async fn run_server() -> anyhow::Result<()> {
-//     let (endpoint, addr) = configure_server()?;
-//     info!("Server listening on: {}", addr);
-//
-//     while let Some(conn) = endpoint.accept().await {
-//         let remote = conn.remote_address();
-//         info!("New client connected: {}", remote);
-//
-//         tokio::spawn(async move {
-//             match conn.await {
-//                 Ok(conn) => {
-//                     if let Err(e) = handle_connection(conn, remote.to_string()).await {
-//                         info!("Connection error: {}", e);
-//                     }
-//                 }
-//                 Err(e) => info!("Connection failed: {}", e),
-//             }
-//         });
-//     }
-//     Ok(())
-// }
-//
-// async fn handle_connection(conn: quinn::Connection, remote_addr: String) -> anyhow::Result<()> {
-//     info!("Handling new connection from: {}", remote_addr);
-//
-//     // 等待客户端打开双向流
-//     let (mut send, mut recv) = conn.accept_bi().await
-//         .map_err(|e| anyhow::anyhow!("Failed to accept stream: {}", e))?;
-//
-//     // 读取客户端的初始消息
-//     let mut hello = [0u8; 5];
-//     recv.read_exact(&mut hello).await
-//         .map_err(|e| anyhow::anyhow!("Failed to read hello: {}", e))?;
-//     info!("Received hello: {}", String::from_utf8_lossy(&hello));
-//
-//     // 创建 QUIC 连接
-//     let conn = QuicConnection::with_streams(conn, send, recv, remote_addr).await?;
-//     info!("Connection established");
-//
-//     while let Ok(msg) = conn.receive().await {
-//         info!("Received message: {:?}", msg);
-//         if msg.command == Command::ClientSendMessage as i32 {
-//             let mut response = Message::default();
-//             response.command = Command::ServerPushMsg as i32;
-//
-//             let prefix = "你好,".to_string();
-//             let content = format!("{}{}", prefix, String::from_utf8_lossy(&msg.data));
-//             response.data = content.into_bytes();
-//
-//             if let Err(e) = conn.send(response).await {
-//                 info!("Failed to send response: {}", e);
-//                 break;
-//             }
-//         }
-//     }
-//
-//     Ok(())
-// }
-//
-// async fn run_client() -> anyhow::Result<()> {
-//     let addr = "127.0.0.1:8443".parse()?;
-//     let endpoint = configure_client()?;
-//
-//     let conn: quinn::Connection = endpoint
-//         .connect(addr, "hugo.im.quic.cn")?
-//         .await?;
-//
-//     let client = Arc::new(QuicConnection::new(conn, addr.to_string()).await?);
-//     info!("Connected to: {}", addr);
-//
-//     // 创建一个任务来处理接收消息
-//     let client_recv = client.clone();
-//     let receive_task = tokio::spawn(async move {
-//         while let Ok(msg) = client_recv.receive().await {
-//             println!("收到消息: {:?}", msg);
-//             if msg.command == Command::ServerPushMsg as i32 {
-//                 println!("收到服务器消息: {}", String::from_utf8_lossy(&msg.data));
-//             }
-//         }
-//     });
-//
-//     // 主循环处理用户输入
-//     loop {
-//         print!("> ");
-//         io::stdout().flush()?;
-//
-//         let mut input = String::new();
-//         if io::stdin().read_line(&mut input).is_err() {
-//             break;
-//         }
-//
-//         let input = input.trim();
-//         if input.is_empty() {
-//             continue;
-//         }
-//         if input == "quit" {
-//             break;
-//         }
-//
-//         let mut msg = Message::default();
-//         msg.command = Command::ClientSendMessage as i32;
-//         msg.data = input.as_bytes().to_vec();
-//
-//         if let Err(e) = client.send(msg).await {
-//             println!("发送失败: {}", e);
-//             break;
-//         }
-//         info!("发送消息: {}", input);
-//     }
-//
-//     client.close().await?;
-//     receive_task.abort();
-//     Ok(())
-// }
+use im_core::client::client::Client;
+use im_core::client::config::ClientConfig;
+use im_core::common::error::{FlareErr, Result};
+use im_core::connections::quic_conf::{
+    create_client_config, create_server_config, init_crypto
+};
+use im_core::connections::{Connection, QuicConnection};
+use log::{debug, error, info};
+use protobuf_codegen::{Command, Message as ProtoMessage};
+use quinn::Endpoint;
+use std::future::Future;
+use std::io::{self, Write};
+use std::net::{AddrParseError, IpAddr, Ipv4Addr, SocketAddr};
+use std::pin::Pin;
+use std::sync::Arc;
+
+// 辅助函数：解析地址
+fn parse_addr(addr: &str) -> Result<SocketAddr> {
+    addr.parse().map_err(|e: AddrParseError| 
+        FlareErr::ConnectionError(e.to_string())
+    )
+}
+
+// 服务器运行逻辑
+async fn run_server() -> Result<()> {
+    let server_config = create_server_config(
+        "/Users/hg/workspace/rust/flare/im_core/certs/cert.pem",
+        "/Users/hg/workspace/rust/flare/im_core/certs/key.pem"
+    )?;
+    
+    let addr = parse_addr("127.0.0.1:8443")?;
+    let endpoint = Endpoint::server(server_config, addr)
+        .map_err(|e| FlareErr::ConnectionError(e.to_string()))?;
+    
+    info!("QUIC 聊天服务器监听端口: {}", addr);
+
+    let server = Arc::new(im_core::server::server::Server::new(
+        im_core::server::handlers::ServerMessageHandler::default()
+    ));
+
+    while let Some(conn) = endpoint.accept().await {
+        let remote = conn.remote_address();
+        info!("新客户端连接: {}", remote);
+
+        match conn.await {
+            Ok(new_conn) => {
+                let quic_conn = QuicConnection::new(new_conn, remote.to_string()).await?;
+                server.add_connection(Box::new(quic_conn)).await;
+            }
+            Err(e) => error!("连接建立失败: {}", e),
+        }
+    }
+    Ok(())
+}
+
+// 客户端运行逻辑
+async fn run_client() -> Result<()> {
+    let client_config = create_client_config("/Users/hg/workspace/rust/flare/im_core/certs/cert.pem",true)
+        .map_err(|e| FlareErr::ConnectionError(e.to_string()))?;
+
+    let bind_addr = SocketAddr::new(IpAddr::V4(Ipv4Addr::UNSPECIFIED), 0);
+    let mut endpoint = Endpoint::client(bind_addr)
+        .map_err(|e| FlareErr::ConnectionError(e.to_string()))?;
+    endpoint.set_default_client_config(client_config);
+
+    let server_addr = parse_addr("127.0.0.1:8443")?;
+    let mut config = ClientConfig::default();
+    config.auth_token = "123456".to_string();
+
+    let connector = move || {
+        let endpoint = endpoint.clone();
+        let server_addr = server_addr;
+        Box::pin(async move {
+            match endpoint.connect(server_addr, "hugo.im.quic.cn") {  // 使用证书中的域名
+                Ok(connecting) => {
+                    match connecting.await {
+                        Ok(conn) => {
+                            let quic_conn = QuicConnection::new(conn, server_addr.to_string()).await?;
+                            Ok(Box::new(quic_conn) as Box<dyn Connection>)
+                        }
+                        Err(e) => Err(FlareErr::ConnectionError(format!("连接失败: {}", e)))
+                    }
+                }
+                Err(e) => Err(FlareErr::ConnectionError(format!("创建连接失败: {}", e)))
+            }
+        }) as Pin<Box<dyn Future<Output = Result<Box<dyn Connection>>> + Send + Sync>>
+    };
+
+    let client = Client::new(connector, config);
+    client.connect().await?;
+    info!("已连接到服务器: {}", server_addr);
+
+    // 主循环处理用户输入
+    loop {
+        print!("> ");
+        io::stdout().flush().unwrap();
+
+        let mut input = String::new();
+        if io::stdin().read_line(&mut input).is_err() {
+            break;
+        }
+
+        let input = input.trim();
+        if input.is_empty() {
+            continue;
+        }
+        if input == "quit" {
+            break;
+        }
+
+        let msg = ProtoMessage {
+            command: Command::ClientSendMessage as i32,
+            data: input.as_bytes().to_vec(),
+            ..Default::default()
+        };
+
+        match client.send(msg).await {
+            Ok(_) => debug!("消息已发送"),
+            Err(e) => error!("消息发送失败: {}", e),
+        }
+    }
+
+    client.close().await?;
+    Ok(())
+}
 
 #[tokio::main]
-async fn main() -> anyhow::Result<()> {
+async fn main() -> Result<()> {
     env_logger::init();
+    // 初始化加密提供程序
+    init_crypto().unwrap();
 
     let args: Vec<String> = std::env::args().collect();
     if args.len() != 2 {
-        println!("Usage: {} <server|client>", args[0]);
+        println!("用法: {} <server|client>", args[0]);
         return Ok(());
     }
 
@@ -192,7 +140,7 @@ async fn main() -> anyhow::Result<()> {
         "server" => run_server().await,
         "client" => run_client().await,
         _ => {
-            println!("Invalid argument. Use 'server' or 'client'");
+            println!("无效参数。请使用 'server' 或 'client'");
             Ok(())
         }
     }

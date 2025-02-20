@@ -111,7 +111,7 @@ async fn run_client() -> Result<()> {
     let connector = move || {
         let url = url.clone();
         Box::pin(async move {
-            let (ws_stream, _) = connect_async(url).await
+            let (ws_stream, _) = connect_async(url.as_str()).await
                 .map_err(|e| FlareErr::ConnectionError(e.to_string()))?;
             Ok(Box::new(WsConnection::new(ws_stream, "127.0.0.1:8080".to_string())) as Box<dyn Connection>)
         }) as Pin<Box<dyn Future<Output = Result<Box<dyn Connection>>> + Send + Sync>>

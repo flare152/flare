@@ -12,6 +12,7 @@ use std::time::{Duration, Instant};
 use async_trait::async_trait;
 use tokio::sync::Mutex;
 use tokio_tungstenite::{tungstenite, WebSocketStream};
+use tokio_tungstenite::tungstenite::Bytes;
 
 #[derive(Clone)]
 pub struct WsConnection<S> {
@@ -89,7 +90,7 @@ where
 
         // 尝试发送 ping 帧
         if let Err(_) = self.writer.lock().await
-            .send(tungstenite::Message::Ping(vec![]))
+            .send(tungstenite::Message::Ping(Bytes::new()))
             .await {
             return false;
         }
@@ -107,7 +108,7 @@ where
             msg.encode(&mut data).map_err(|e| FlareErr::ConnectionError(e.to_string()))?;
 
             writer.lock().await
-                .send(tungstenite::Message::Binary(data))
+                .send(tungstenite::Message::Binary(Bytes::from(data)))
                 .await
                 .map_err(|_| FlareErr::ConnectionError("Failed to send message".to_string()))?;
 
@@ -125,7 +126,7 @@ where
                 
                 match msg {
                     tungstenite::Message::Binary(data) => {
-                        let msg = Message::decode(data.as_slice())
+                        let msg = Message::decode(data)
                             .map_err(|e| FlareErr::ConnectionError(e.to_string()))?;
                         debug!("Received message: command={:?}, data_len={}", 
                             Command::try_from(msg.command).unwrap_or(Command::CmdUnknown), msg.data.len());
@@ -134,7 +135,7 @@ where
                     tungstenite::Message::Ping(_) => {
                         debug!("Received ping message");
                         if let Err(_) = self.writer.lock().await
-                            .send(tungstenite::Message::Pong(vec![]))
+                            .send(tungstenite::Message::Pong(Bytes::new()))
                             .await {
                             warn!("Failed to send pong");
                         }
