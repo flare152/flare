@@ -164,8 +164,6 @@ where
         let handler = self.handler.clone();
         let is_running = self.is_running.clone();
         let last_pong = self.last_pong.clone();
-        // let pending_requests = self.pending_requests.clone();
-        // let state = self.state.clone();
         
         tokio::spawn(async move {
             while let Some(conn) = conn.lock().await.as_ref() {
@@ -198,6 +196,9 @@ where
         let conn = self.conn.clone();
         let is_running = self.is_running.clone();
         let last_pong = self.last_pong.clone();
+        let pending_requests = self.pending_requests.clone();
+        let state = self.state.clone();
+        let handler = self.handler.clone();
         let config = self.config.clone();
         
         tokio::spawn(async move {
@@ -206,22 +207,37 @@ where
                 interval.tick().await;
                 
                 if let Some(conn) = conn.lock().await.as_ref() {
-                    // 检查上次 PONG 时间
-                    let last = *last_pong.lock().await;
-                    if last.elapsed() > config.pong_timeout {
-                        warn!("No PONG received for {:?}, reconnecting", config.pong_timeout);
-                        break;
-                    }
+                    match conn.receive().await {
+                        Ok(msg) => {
+                            // 更新最后一次 PONG 时间
+                            if msg.command == Command::Pong as i32 {
+                                *last_pong.lock().await = Instant::now();
+                                continue;
+                            }
 
-                    // 发送 PING
-                    let ping = ProtoMessage {
-                        command: Command::Ping as i32,
-                        ..Default::default()
-                    };
-                    
-                    if let Err(e) = conn.send(ping).await {
-                        error!("Failed to send PING: {}", e);
-                        break;
+                            // 处理服务端响应
+                            if msg.command == Command::ServerResponse as i32 {
+                                let mut pending = pending_requests.lock().await;
+                                if let Ok(response) = Response::decode(&msg.data[..]) {
+                                    if let Some(tx) = pending.remove(&msg.client_id) {
+                                        let _ = tx.send(response.clone());
+                                    } else {
+                                        // 如果没有找到对应的请求通道，则交给消息处理器处理
+                                        handler.on_response(&response).await;
+                                    }
+                                }
+                                continue;
+                            }
+
+                            // 处理其他消息
+                            let command = Command::try_from(msg.command).unwrap_or(Command::CmdUnknown);
+                            let _ = handler.handle_command(command, msg.data).await;
+                        }
+                        Err(e) => {
+                            error!("Error receiving message: {}", e);
+                            *state.lock().await = ClientState::Disconnected;
+                            break;
+                        }
                     }
                 }
             }

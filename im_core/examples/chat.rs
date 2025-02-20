@@ -143,7 +143,7 @@ async fn run_client() -> Result<()> {
             ..Default::default()
         };
 
-        if let Err(e) = client.send(msg).await {
+        if let Err(e) = client.send_wait(msg).await {
             println!("发送失败: {}", e);
             break;
         }
