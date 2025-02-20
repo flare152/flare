@@ -111,9 +111,8 @@ impl Connection for QuicConnection {
         if last_active.elapsed() > timeout {
             return false;
         }
+         // 检查 QUIC 连接状态
         return true
-        // 检查 QUIC 连接状态
-        //!self.conn.stats()
     }
 
     fn send(&self, msg: Message) -> Pin<Box<dyn Future<Output = Result<()>> + Send>> {
