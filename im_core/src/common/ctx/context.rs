@@ -54,6 +54,7 @@ impl Context for AppContext {
     }
 
     fn get_data_as<T: Message + Default>(&self) -> Result<T> {
+        debug!("Decoding message: {:?}", self.data);
         T::decode(&self.data[..])
             .map_err(|e| FlareErr::DecodeError(e))
     }

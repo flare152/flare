@@ -4,7 +4,8 @@ use crate::common::error::{FlareErr, Result};
 use crate::server::handlers::CommandHandler;
 use async_trait::async_trait;
 use log::debug;
-use protobuf_codegen::flare_gen::flare::net::LoginReq;
+use prost::Message;
+use protobuf_codegen::flare_gen::flare::net::{LoginReq, LoginResp};
 use protobuf_codegen::{Command, ResCode, Response};
 
 #[async_trait]
@@ -90,11 +91,14 @@ impl AuthHandler for DefAuthHandler {
                 data: Vec::new(),
             });
         }
-
+        let resp = LoginResp {
+            user_id:"sss".to_string(),
+            language:"zh".to_string(),
+        };
         Ok(Response {
             code: ResCode::Success as i32,
             message: "登录成功".into(),
-            data: Vec::new(),
+            data: resp.encode_to_vec(),
         })
     }
 

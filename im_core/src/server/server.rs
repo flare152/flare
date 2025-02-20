@@ -356,10 +356,13 @@ impl Server {
         let now = chrono::Utc::now();
         
         conns.retain(|conn_id, info| {
-            let last = *info.last_heartbeat.blocking_lock();
-            if now.signed_duration_since(last) > chrono::Duration::seconds(CONNECTION_TIMEOUT.as_secs() as i64) {
-                warn!("Connection {} timed out", conn_id);
-                false
+            if let Ok(last) = info.last_heartbeat.try_lock() {
+                if now.signed_duration_since(*last) > chrono::Duration::seconds(CONNECTION_TIMEOUT.as_secs() as i64) {
+                    warn!("Connection {} timed out", conn_id);
+                    false
+                } else {
+                    true
+                }
             } else {
                 true
             }
@@ -448,7 +451,14 @@ struct ServerHandle {
 
 impl ServerHandle {
     async fn build_context(&self, builder: AppContextBuilder, conn_id: String, client_msg_id: String) -> Option<AppContext> {
-        builder.with_conn_id(conn_id).with_client_msg_id(client_msg_id).build().ok()
+        match builder
+            .with_conn_id(conn_id)
+            .with_client_msg_id(client_msg_id)
+            .build() 
+        {
+            Ok(ctx) => Some(ctx),
+            Err(_) => None
+        }
     }
 
     async fn send_response(&self, conn_id: String, client_msg_id: String, response: Response) -> Result<()> {

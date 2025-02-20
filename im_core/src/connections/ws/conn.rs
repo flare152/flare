@@ -100,8 +100,8 @@ where
     fn send(&self, msg: Message) -> Pin<Box<dyn Future<Output = Result<()>> + Send + '_>> {
         let writer = self.writer.clone();
         Box::pin(async move {
-            debug!("Sending message: command={:?}, data_len={}", 
-                Command::try_from(msg.command).unwrap_or(Command::CmdUnknown), msg.data.len());
+            // debug!("Sending message: command={:?}, data_len={}",
+            //     Command::try_from(msg.command).unwrap_or(Command::CmdUnknown), msg.data.len());
             
             let mut data = Vec::new();
             msg.encode(&mut data).map_err(|e| FlareErr::ConnectionError(e.to_string()))?;

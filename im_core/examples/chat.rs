@@ -105,7 +105,8 @@ async fn run_server() -> Result<()> {
 
 async fn run_client() -> Result<()> {
     let url = url::Url::parse("ws://127.0.0.1:8080").unwrap();
-    let config = ClientConfig::default();
+    let mut config = ClientConfig::default();
+    config.auth_token = "123456".to_string();
     let url_clone = url.clone();
     let connector = move || {
         let url = url.clone();
@@ -117,6 +118,7 @@ async fn run_client() -> Result<()> {
     };
 
     let client = Client::new(connector, config);
+    client.connect().await?;
     info!("已连接到服务器: {}", url_clone);
 
     // 主循环处理用户输入
@@ -143,9 +145,13 @@ async fn run_client() -> Result<()> {
             ..Default::default()
         };
 
-        if let Err(e) = client.send_wait(msg).await {
-            println!("发送失败: {}", e);
-            break;
+       match client.send(msg).await {
+           Ok(r)=> {
+               println!("消息已发送: {:?}", r);
+           },
+           Err(e)=> {
+               error!("消息发送失败: {}", e);
+           }
         }
     }
 

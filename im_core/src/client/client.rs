@@ -5,7 +5,7 @@ use crate::client::sys_handler::DefClientSystemHandler;
 use crate::common::error::FlareErr;
 use crate::common::error::Result;
 use crate::connections::Connection;
-use log::{error, warn};
+use log::{debug, error, warn};
 use prost::Message as ProstMessage;
 use protobuf_codegen::flare_gen::flare::net::LoginReq;
 use protobuf_codegen::{Command, Message as ProtoMessage, Response};
@@ -97,27 +97,95 @@ where
         client
     }
 
+    // 修改为返回 Arc<Box<dyn Connection>> 以避免重复克隆
+    async fn get_connection_ref(conn: &Arc<Mutex<Option<Box<dyn Connection>>>>) -> Option<Arc<Box<dyn Connection>>> {
+        conn.lock().await.as_ref().map(|c| Arc::new(c.clone_box()))
+    }
+
+    // 使用批量发送缓冲区
     fn spawn_sender(&self, mut rx: mpsc::Receiver<ProtoMessage>) {
         let conn = self.conn.clone();
         let is_running = self.is_running.clone();
         
         tokio::spawn(async move {
-            while let Some(msg) = rx.recv().await {
-                if !*is_running.lock().await {
-                    break;
-                }
-                
-                if let Some(conn) = conn.lock().await.as_ref() {
-                    match conn.send(msg).await {
-                        Ok(_) => (),
-                        Err(e) => {
-                            error!("Failed to send message: {}", e);
-                            continue;
+            let mut conn_ref = None;
+            let mut msg_buffer = Vec::with_capacity(32); // 消息缓冲区
+            let mut flush_timer = tokio::time::interval(Duration::from_millis(10)); // 定时刷新
+            
+            loop {
+                tokio::select! {
+                    // 接收消息
+                    msg = rx.recv() => {
+                        match msg {
+                            Some(msg) => {
+                                if !*is_running.lock().await {
+                                    warn!("Client is not running, skipping message send.");
+                                    break;
+                                }
+                                msg_buffer.push(msg);
+                                
+                                // 缓冲区满时立即发送
+                                if msg_buffer.len() >= 32 {
+                                    if let Err(e) = Self::flush_messages(&mut conn_ref, &conn, &mut msg_buffer).await {
+                                        error!("Failed to flush messages: {}", e);
+                                    }
+                                }
+                            }
+                            None => break,
+                        }
+                    }
+                    
+                    // 定时刷新缓冲区
+                    _ = flush_timer.tick() => {
+                        if !msg_buffer.is_empty() {
+                            if let Err(e) = Self::flush_messages(&mut conn_ref, &conn, &mut msg_buffer).await {
+                                error!("Failed to flush messages: {}", e);
+                            }
                         }
                     }
                 }
             }
+            
+            // 退出前确保发送所有消息
+            if !msg_buffer.is_empty() {
+                if let Err(e) = Self::flush_messages(&mut conn_ref, &conn, &mut msg_buffer).await {
+                    error!("Failed to flush remaining messages: {}", e);
+                }
+            }
         });
+    }
+
+    // 批量发送消息
+    async fn flush_messages(
+        conn_ref: &mut Option<Arc<Box<dyn Connection>>>,
+        conn: &Arc<Mutex<Option<Box<dyn Connection>>>>,
+        msg_buffer: &mut Vec<ProtoMessage>
+    ) -> Result<()> {
+        // 确保连接可用
+        if conn_ref.is_none() {
+            *conn_ref = Self::get_connection_ref(conn).await;
+        }
+
+        if let Some(ref conn) = conn_ref {
+            let mut failed = false;
+            
+            // 批量发送所有消息
+            for msg in msg_buffer.drain(..) {
+                debug!("Sending message: {:?}", msg);
+                if let Err(e) = conn.send(msg).await {
+                    error!("Failed to send message: {}", e);
+                    failed = true;
+                    break;
+                }
+            }
+
+            if failed {
+                *conn_ref = None; // 发送失败时清除连接引用
+                msg_buffer.clear(); // 清空缓冲区
+            }
+        }
+        
+        Ok(())
     }
 
     pub async fn connect(&self) -> Result<()> {
@@ -146,6 +214,7 @@ where
             user_id: self.config.user_id.clone(),
             platform: self.config.platform as i32,
             client_id: self.config.client_id.clone(),
+            token: self.config.auth_token.clone(),
             ..Default::default()
         };
         let auth_msg = ProtoMessage {
@@ -161,31 +230,56 @@ where
 
     fn spawn_receiver(&self) {
         let conn = self.conn.clone();
-        let handler = self.handler.clone();
         let is_running = self.is_running.clone();
         let last_pong = self.last_pong.clone();
-        
+        let pending_requests = self.pending_requests.clone();
+        let handler = self.handler.clone();
+        let state = self.state.clone();
+
         tokio::spawn(async move {
-            while let Some(conn) = conn.lock().await.as_ref() {
-                if !*is_running.lock().await {
-                    break;
+            let mut conn_ref = None;
+            while *is_running.lock().await {
+                // 只在需要时更新连接引用
+                if conn_ref.is_none() {
+                    conn_ref = Self::get_connection_ref(&conn).await;
                 }
 
-                match conn.receive().await {
-                    Ok(msg) => {
-                        // 更新最后一次 PONG 时间
-                        if msg.command == Command::Pong as i32 {
-                            *last_pong.lock().await = Instant::now();
-                            continue;
-                        }
+                if let Some(ref conn) = conn_ref {
+                    match conn.receive().await {
+                        Ok(msg) => {
+                            // 更新最后一次 PONG 时间
+                            if msg.command == Command::Pong as i32 {
+                                *last_pong.lock().await = Instant::now();
+                                continue;
+                            }
 
-                        // 根据命令类型分发处理
-                        let command = Command::try_from(msg.command).unwrap_or(Command::CmdUnknown);
-                        let _ = handler.handle_command(command, msg.data).await;
-                    }
-                    Err(e) => {
-                        error!("Error receiving message: {}", e);
-                        break;
+                            // 处理服务端响应
+                            if msg.command == Command::ServerResponse as i32 {
+                                if let Ok(response) = Response::decode(&msg.data[..]) {
+                                    let tx = {
+                                        let mut pending = pending_requests.lock().await;
+                                        pending.remove(&msg.client_id)
+                                    };
+                                    
+                                    if let Some(tx) = tx {
+                                        let _ = tx.send(response.clone());
+                                    } else {
+                                        handler.on_response(&response).await;
+                                    }
+                                }
+                                continue;
+                            }
+
+                            // 处理其他消息
+                            let command = Command::try_from(msg.command).unwrap_or(Command::CmdUnknown);
+                            let _ = handler.handle_command(command, msg.data).await;
+                        }
+                        Err(e) => {
+                            error!("Error receiving message: {}", e);
+                            *state.lock().await = ClientState::Disconnected;
+                            conn_ref = None; // 接收失败时清除引用
+                            break;
+                        }
                     }
                 }
             }
@@ -206,8 +300,10 @@ where
             while *is_running.lock().await {
                 interval.tick().await;
                 
-                if let Some(conn) = conn.lock().await.as_ref() {
-                    match conn.receive().await {
+                let conn_ref = Self::get_connection_ref(&conn).await;
+                
+                if let Some(conn_ref) = conn_ref {
+                    match conn_ref.receive().await {
                         Ok(msg) => {
                             // 更新最后一次 PONG 时间
                             if msg.command == Command::Pong as i32 {
@@ -286,7 +382,6 @@ where
         
         // 创建响应通道
         let (tx, rx) = oneshot::channel();
-        
         // 保存请求
         {
             let mut pending = self.pending_requests.lock().await;
@@ -295,7 +390,6 @@ where
         
         // 发送消息
         self.send(msg).await?;
-        
         // 等待响应
         match rx.await {
             Ok(response) => Ok(response),
@@ -332,20 +426,19 @@ where
 
         match self.get_state().await {
             ClientState::Connected | ClientState::Authenticated => {
-                // 检查最后一次 PONG 时间
                 let last_pong = *self.last_pong.lock().await;
                 if last_pong.elapsed() > self.config.pong_timeout {
                     return false;
                 }
 
-                // 发送 PING 测试连接
                 let ping = ProtoMessage {
                     command: Command::Ping as i32,
                     ..Default::default()
                 };
 
-                if let Some(conn) = self.conn.lock().await.as_ref() {
-                    match conn.send(ping).await {
+                let conn_ref = Self::get_connection_ref(&self.conn).await;
+                if let Some(conn_ref) = conn_ref {
+                    match conn_ref.send(ping).await {
                         Ok(_) => true,
                         Err(_) => false,
                     }
