@@ -2,7 +2,7 @@ use crate::client::config::ClientConfig;
 use crate::client::handlers::ClientMessageHandler;
 use crate::client::message_handler::DefMessageHandler;
 use crate::client::sys_handler::DefClientSystemHandler;
-use crate::common::error::error::{FlareErr, Result};
+use crate::common::error::error::Result;
 use crate::connections::Connection;
 use log::{error, warn};
 use prost::Message as ProstMessage;
@@ -174,15 +174,15 @@ where
 
                 match conn.receive().await {
                     Ok(msg) => {
+                        // 更新最后一次 PONG 时间
                         if msg.command == Command::Pong as i32 {
                             *last_pong.lock().await = Instant::now();
                             continue;
                         }
 
+                        // 根据命令类型分发处理
                         let command = Command::try_from(msg.command).unwrap_or(Command::CmdUnknown);
-                        if let Err(e) = handler.handle_command(command, msg.data).await {
-                            error!("Error handling command: {}", e);
-                        }
+                        handler.handle_command(command, msg.data).await?;
                     }
                     Err(e) => {
                         error!("Error receiving message: {}", e);
@@ -290,7 +290,7 @@ where
     pub async fn send_wait_timeout(&self, msg: ProtoMessage, timeout: Duration) -> Result<Response> {
         tokio::time::timeout(timeout, self.send_wait(msg))
             .await
-            .map_err(|_| FlareErr::Timeout("Request timeout".to_string()))?
+            .map_err(|_| anyhow::anyhow!("Request timeout").into())?
     }
 
     /// 关闭连接

@@ -52,11 +52,9 @@ impl Context for AppContext {
         self.data = data;
     }
 
-    fn get_data_as<T: Message + Default>(&self) -> Result<T> {
-        T::decode(&self.data[..])
-            .map_err(|e| FlareErr::DecodeError(e))
+    fn get_data_as<T: Message + Default>(&self) -> Result<T>{
+        Ok(T::decode(&self.data[..]))
     }
-
     fn msg_id(&self) -> Result<String> {
         String::from_utf8(self.data.clone())
             .map_err(|e| FlareErr::DecodeError(prost::DecodeError::new(e.to_string())))
