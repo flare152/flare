@@ -5,21 +5,21 @@ use im_core::client::config::ClientConfig;
 use im_core::client::message_handler::MessageHandler;
 use im_core::client::sys_handler::ClientSystemHandler;
 use im_core::common::ctx::{AppContext, Context};
-use im_core::common::error::{FlareErr,Result};
+use im_core::common::error::{FlareErr, Result};
 use im_core::connections::{Connection, WsConnection};
 use im_core::server::auth_handler::AuthHandler;
 use im_core::server::handlers::ServerMessageHandler;
 use im_core::server::server::Server;
 use im_core::server::server_handler::ServerHandler;
 use im_core::server::sys_handler::SystemHandler;
-use log::{debug, info, error};
+use log::{debug, error, info};
 use protobuf_codegen::{Command, Message as ProtoMessage, Platform, Response};
-use std::io::{self, Write};
-use std::sync::Arc;
-use tokio::net::{TcpListener, TcpStream};
-use tokio_tungstenite::{accept_async, connect_async};
-use std::pin::Pin;
 use std::future::Future;
+use std::io::{self, Write};
+use std::pin::Pin;
+use std::sync::Arc;
+use tokio::net::TcpListener;
+use tokio_tungstenite::{accept_async, connect_async};
 use url;
 
 // 自定义客户端消息处理器
@@ -51,41 +51,6 @@ impl MessageHandler for ChatClientHandler {
 
     async fn on_data(&self, data: Vec<u8>) {
         println!("\r收到数据: {}", String::from_utf8_lossy(&data));
-    }
-}
-
-// 自定义客户端系统处理器
-struct ChatClientSysHandler;
-
-#[async_trait]
-impl ClientSystemHandler for ChatClientSysHandler {
-    async fn login_out(&self) -> Result<()> {
-        println!("系统通知: 已退出登录");
-        Ok(())
-    }
-
-    async fn set_background(&self) -> Result<()> {
-        println!("系统通知: 已切换到后台");
-        Ok(())
-    }
-
-    async fn set_language(&self) -> Result<()> {
-        println!("系统通知: 语言已更新");
-        Ok(())
-    }
-
-    async fn kick_online(&self) -> Result<()> {
-        println!("系统通知: 您已被踢下线");
-        Ok(())
-    }
-
-    async fn close(&self) -> Result<()> {
-        println!("系统通知: 连接已关闭");
-        Ok(())
-    }
-
-    async fn on_state_change(&self, state: ClientState) {
-        println!("系统通知: 连接状态变更为 {:?}", state);
     }
 }
 
