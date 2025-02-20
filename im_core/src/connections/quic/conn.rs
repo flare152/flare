@@ -100,27 +100,98 @@ impl Connection for QuicConnection {
     }
 
     async fn is_active(&self, timeout: Duration) -> bool {
-        // 实现检查连接活跃状态的逻辑
-        true
+        // 检查连接状态
+        let state = *self.state.lock().await;
+        if state != ConnectionState::Connected {
+            return false;
+        }
+
+        // 检查最后活动时间
+        let last_active = *self.last_active.lock().await;
+        if last_active.elapsed() > timeout {
+            return false;
+        }
+        return true
+        // 检查 QUIC 连接状态
+        //!self.conn.stats()
     }
 
     fn send(&self, msg: Message) -> Pin<Box<dyn Future<Output = Result<()>> + Send>> {
+        let send_stream = self.send_stream.clone();
         Box::pin(async move {
-            // 实现发送逻辑
+            debug!("Sending message: command={:?}, data_len={}", 
+                Command::try_from(msg.command).unwrap_or(Command::CmdUnknown), 
+                msg.data.len()
+            );
+            
+            // 编码消息
+            let mut data = Vec::new();
+            msg.encode(&mut data)
+                .map_err(|e| FlareErr::EncodeError(e))?;
+            
+            // 发送长度前缀
+            let len = (data.len() as u32).to_be_bytes();
+            send_stream.lock().await
+                .write_all(&len)
+                .await
+                .map_err(|e| FlareErr::ConnectionError(e.to_string()))?;
+            
+            // 发送数据
+            send_stream.lock().await
+                .write_all(&data)
+                .await
+                .map_err(|e| FlareErr::ConnectionError(e.to_string()))?;
+            
+            self.update_last_active().await;
             Ok(())
         })
     }
 
     fn receive(&self) -> Pin<Box<dyn Future<Output = Result<Message>> + Send>> {
+        let recv_stream = self.recv_stream.clone();
         Box::pin(async move {
-            // 实现接收逻辑
-            Ok(Message::default())
+            // 读取长度前缀
+            let mut len_bytes = [0u8; 4];
+            recv_stream.lock().await
+                .read_exact(&mut len_bytes)
+                .await
+                .map_err(|e| FlareErr::ConnectionError(e.to_string()))?;
+            
+            let len = u32::from_be_bytes(len_bytes) as usize;
+            
+            // 读取消息数据
+            let mut data = vec![0u8; len];
+            recv_stream.lock().await
+                .read_exact(&mut data)
+                .await
+                .map_err(|e| FlareErr::ConnectionError(e.to_string()))?;
+            
+            // 解码消息
+            let msg = Message::decode(&data[..])
+                .map_err(|e| FlareErr::DecodeError(e))?;
+            
+            debug!("Received message: command={:?}, data_len={}", 
+                Command::try_from(msg.command).unwrap_or(Command::CmdUnknown), 
+                msg.data.len()
+            );
+            
+            self.update_last_active().await;
+            Ok(msg)
         })
     }
 
     fn close(&self) -> Pin<Box<dyn Future<Output = Result<()>> + Send>> {
         Box::pin(async move {
-            // 实现关闭逻辑
+            *self.state.lock().await = ConnectionState::Disconnected;
+            
+            // 关闭发送流
+            if let Ok(mut send) = self.send_stream.try_lock() {
+                let _ = send.finish().await;
+            }
+            
+            // 关闭 QUIC 连接
+            self.conn.close(0u32.into(), b"Normal closure");
+            
             Ok(())
         })
     }
