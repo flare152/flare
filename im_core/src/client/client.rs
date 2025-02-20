@@ -182,7 +182,7 @@ where
 
                         // 根据命令类型分发处理
                         let command = Command::try_from(msg.command).unwrap_or(Command::CmdUnknown);
-                        handler.handle_command(command, msg.data).await?;
+                        let _ = handler.handle_command(command, msg.data).await;
                     }
                     Err(e) => {
                         error!("Error receiving message: {}", e);
