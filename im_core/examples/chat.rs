@@ -4,8 +4,8 @@ use im_core::client::client::{Client, ClientState};
 use im_core::client::config::ClientConfig;
 use im_core::client::message_handler::MessageHandler;
 use im_core::client::sys_handler::ClientSystemHandler;
-use im_core::common::ctx::Context;
-use im_core::common::error::error::FlareErr;
+use im_core::common::ctx::{AppContext, Context};
+use im_core::common::error::{FlareErr,Result};
 use im_core::connections::{Connection, WsConnection};
 use im_core::server::auth_handler::AuthHandler;
 use im_core::server::handlers::ServerMessageHandler;
@@ -124,7 +124,7 @@ impl ServerHandler for ChatServerHandler {
 
 async fn run_server() -> Result<()> {
     let addr = "127.0.0.1:8080";
-    let listener = TcpListener::bind(addr).await?;
+    let listener = TcpListener::bind(addr).await.map_err(|e| FlareErr::ConnectionError(e.to_string()))?;
     info!("聊天服务器监听端口: {}", addr);
 
     let server = Server::new(ServerMessageHandler::default());
@@ -141,8 +141,8 @@ async fn run_server() -> Result<()> {
 async fn run_client() -> Result<()> {
     let url = url::Url::parse("ws://127.0.0.1:8080").unwrap();
     let config = ClientConfig::default();
-
-    let connector = || {
+    let url_clone = url.clone();
+    let connector = move || {
         let url = url.clone();
         Box::pin(async move {
             let (ws_stream, _) = connect_async(url).await
@@ -152,7 +152,7 @@ async fn run_client() -> Result<()> {
     };
 
     let client = Client::new(connector, config);
-    info!("已连接到服务器: {}", url);
+    info!("已连接到服务器: {}", url_clone);
 
     // 主循环处理用户输入
     loop {

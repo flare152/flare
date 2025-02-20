@@ -2,13 +2,13 @@ use crate::client::config::ClientConfig;
 use crate::client::handlers::ClientMessageHandler;
 use crate::client::message_handler::DefMessageHandler;
 use crate::client::sys_handler::DefClientSystemHandler;
-use crate::common::error::error::FlareErr;
-use crate::common::error::error::Result;
+use crate::common::error::FlareErr;
+use crate::common::error::Result;
 use crate::connections::Connection;
 use log::{error, warn};
 use prost::Message as ProstMessage;
 use protobuf_codegen::flare_gen::flare::net::LoginReq;
-use protobuf_codegen::{Command, Message as ProtoMessage, Platform, Response};
+use protobuf_codegen::{Command, Message as ProtoMessage, Response};
 use std::collections::HashMap;
 use std::fmt;
 use std::future::Future;
@@ -164,8 +164,8 @@ where
         let handler = self.handler.clone();
         let is_running = self.is_running.clone();
         let last_pong = self.last_pong.clone();
-        let pending_requests = self.pending_requests.clone();
-        let state = self.state.clone();
+        // let pending_requests = self.pending_requests.clone();
+        // let state = self.state.clone();
         
         tokio::spawn(async move {
             while let Some(conn) = conn.lock().await.as_ref() {

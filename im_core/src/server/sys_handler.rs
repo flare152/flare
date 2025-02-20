@@ -1,6 +1,6 @@
 use crate::common::ctx::AppContext;
 use crate::common::ctx::Context;
-use crate::common::error::error::{FlareErr, Result};
+use crate::common::error::{FlareErr, Result};
 use crate::server::handlers::CommandHandler;
 use crate::server::server::ConnectionInfo;
 use async_trait::async_trait;

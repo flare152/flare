@@ -1,4 +1,4 @@
-use crate::common::error::error::Result;
+use crate::common::error::Result;
 use protobuf_codegen::{Command, Platform};
 use std::sync::Arc;
 use prost::Message;

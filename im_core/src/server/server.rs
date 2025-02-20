@@ -1,14 +1,13 @@
 use crate::common::ctx::{AppContext, AppContextBuilder};
-use crate::common::error::error::{FlareErr, Result};
+use crate::common::error::{FlareErr, Result};
 use crate::connections::Connection;
 use crate::server::handlers::{CommandHandler, ServerMessageHandler};
 use log::{debug, error, info, warn};
 use prost::Message;
-use protobuf_codegen::flare_gen::flare::net::{LoginReq, LoginResp};
+use protobuf_codegen::flare_gen::flare::net::LoginResp;
 use protobuf_codegen::{Command, Message as ProtoMessage, Platform, ResCode, Response};
 use std::collections::HashMap;
 use std::sync::Arc;
-use std::time::Instant;
 use tokio::sync::Mutex;
 use tokio::time::{interval, Duration};
 
@@ -66,6 +65,12 @@ impl ConnectionInfo {
     }
     pub fn get_conn_id(&self) -> String {
         self.conn_id.clone()
+    }
+    pub fn get_protocol(&self) -> String {
+        self.protocol.clone()
+    }
+    pub fn get_connection_at(&self) -> chrono::DateTime<chrono::Utc> {
+        self.connected_at.clone()
     }
 }
 
