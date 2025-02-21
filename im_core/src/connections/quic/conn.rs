@@ -30,18 +30,38 @@ pub struct QuicConnection {
 }
 
 impl QuicConnection {
+    // 服务端使用的构造函数
     pub async fn new(
         conn: QuinnConnection,
         remote_addr: String,
     ) -> Result<Self> {
-        // 打开双向流
-        let (mut send, recv) = conn
-            .open_bi()
+        // 服务端等待客户端打开双向流
+        let (send, recv) = conn
+            .accept_bi()
             .await
             .map_err(|e| FlareErr::ConnectionError(e.to_string()))?;
 
-        // 等待服务器接受流
-        send.write_all(b"hello").await
+        Ok(Self {
+            conn_id: uuid::Uuid::new_v4().to_string(),
+            protocol: "quic".to_string(),
+            remote_addr,
+            state: Arc::new(Mutex::new(ConnectionState::Connected)),
+            last_active: Arc::new(Mutex::new(Instant::now())),
+            conn: Arc::new(conn),
+            send_stream: Arc::new(Mutex::new(send)),
+            recv_stream: Arc::new(Mutex::new(recv)),
+        })
+    }
+
+    // 客户端使用的构造函数
+    pub async fn connect(
+        conn: QuinnConnection,
+        remote_addr: String,
+    ) -> Result<Self> {
+        // 客户端主动打开双向流
+        let (send, recv) = conn
+            .open_bi()
+            .await
             .map_err(|e| FlareErr::ConnectionError(e.to_string()))?;
 
         Ok(Self {

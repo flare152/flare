@@ -71,11 +71,11 @@ async fn run_client() -> Result<()> {
         let endpoint = endpoint.clone();
         let server_addr = server_addr;
         Box::pin(async move {
-            match endpoint.connect(server_addr, "hugo.im.quic.cn") {  // 使用证书中的域名
+            match endpoint.connect(server_addr, "hugo.im.quic.cn") {
                 Ok(connecting) => {
                     match connecting.await {
                         Ok(conn) => {
-                            let quic_conn = QuicConnection::new(conn, server_addr.to_string()).await?;
+                            let quic_conn = QuicConnection::connect(conn, server_addr.to_string()).await?;
                             Ok(Box::new(quic_conn) as Box<dyn Connection>)
                         }
                         Err(e) => Err(FlareErr::ConnectionError(format!("连接失败: {}", e)))
