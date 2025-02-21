@@ -188,23 +188,74 @@ where
         Ok(())
     }
 
+    // 启动消息接收循环
+    fn spawn_receiver(&self) {
+        let conn = self.conn.clone();
+        let handler = self.handler.clone();
+        let is_running = self.is_running.clone();
+        let last_pong = self.last_pong.clone();
+        let pending_requests = self.pending_requests.clone();
+
+        tokio::spawn(async move {
+            while *is_running.lock().await {
+                if let Some(conn_ref) = Self::get_connection_ref(&conn).await {
+                    match conn_ref.receive().await {
+                        Ok(msg) => {
+                            // 处理 PONG 消息
+                            if msg.command == Command::Pong as i32 {
+                                *last_pong.lock().await = Instant::now();
+                                continue;
+                            }
+
+                            // 处理响应消息
+                            if msg.command == Command::ServerResponse as i32 {
+                                if let Ok(response) = Response::decode(&msg.data[..]) {
+                                    // 检查是否有待处理的请求
+                                    let mut pending = pending_requests.lock().await;
+                                    if let Some(tx) = pending.remove(&msg.client_id) {
+                                        let _ = tx.send(response.clone());
+                                    }
+                                    // 通知消息处理器
+                                    handler.on_response(&response).await;
+                                }
+                                continue;
+                            }
+
+                            // 处理其他消息
+                            if let Ok(command) = Command::try_from(msg.command) {
+                                if let Err(e) = handler.handle_command(command, msg.data).await {
+                                    error!("Failed to handle command: {}", e);
+                                }
+                            }
+                        }
+                        Err(e) => {
+                            error!("Failed to receive message: {}", e);
+                            break;
+                        }
+                    }
+                }
+                tokio::time::sleep(Duration::from_millis(10)).await;
+            }
+        });
+    }
+
+    /// 连接到服务器
     pub async fn connect(&self) -> Result<()> {
-        self.set_state(ClientState::Connecting).await;
-        
-        let conn = (self.connector)().await?;
-        *self.conn.lock().await = Some(conn);
-        
-        self.set_state(ClientState::Connected).await;
-        
-        // 发送认证消息
+        *self.state.lock().await = ClientState::Connecting;
+        self.handler.handle_state_change(ClientState::Connecting).await;
+
+        // 认知
         self.authenticate().await?;
-        
-        // 启动接收任务
+
+        // 创建连接
+        let new_conn = (self.connector)().await?;
+        *self.conn.lock().await = Some(new_conn);
+
+        // 启动消息接收循环
         self.spawn_receiver();
-        
-        // 启动保活任务
-        self.spawn_keepalive();
-        
+
+        // 更新状态
+        self.set_state(ClientState::Connected).await;
         Ok(())
     }
 
@@ -226,64 +277,6 @@ where
         self.send(auth_msg).await?;
         self.set_state(ClientState::Authenticated).await;
         Ok(())
-    }
-
-    fn spawn_receiver(&self) {
-        let conn = self.conn.clone();
-        let is_running = self.is_running.clone();
-        let last_pong = self.last_pong.clone();
-        let pending_requests = self.pending_requests.clone();
-        let handler = self.handler.clone();
-        let state = self.state.clone();
-
-        tokio::spawn(async move {
-            let mut conn_ref = None;
-            while *is_running.lock().await {
-                // 只在需要时更新连接引用
-                if conn_ref.is_none() {
-                    conn_ref = Self::get_connection_ref(&conn).await;
-                }
-
-                if let Some(ref conn) = conn_ref {
-                    match conn.receive().await {
-                        Ok(msg) => {
-                            // 更新最后一次 PONG 时间
-                            if msg.command == Command::Pong as i32 {
-                                *last_pong.lock().await = Instant::now();
-                                continue;
-                            }
-
-                            // 处理服务端响应
-                            if msg.command == Command::ServerResponse as i32 {
-                                if let Ok(response) = Response::decode(&msg.data[..]) {
-                                    let tx = {
-                                        let mut pending = pending_requests.lock().await;
-                                        pending.remove(&msg.client_id)
-                                    };
-                                    
-                                    if let Some(tx) = tx {
-                                        let _ = tx.send(response.clone());
-                                    } else {
-                                        handler.on_response(&response).await;
-                                    }
-                                }
-                                continue;
-                            }
-
-                            // 处理其他消息
-                            let command = Command::try_from(msg.command).unwrap_or(Command::CmdUnknown);
-                            let _ = handler.handle_command(command, msg.data).await;
-                        }
-                        Err(e) => {
-                            error!("Error receiving message: {}", e);
-                            *state.lock().await = ClientState::Disconnected;
-                            conn_ref = None; // 接收失败时清除引用
-                            break;
-                        }
-                    }
-                }
-            }
-        });
     }
 
     fn spawn_keepalive(&self) {
