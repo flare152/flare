@@ -1,4 +1,4 @@
-use crate::common::ctx::{AppContext, Context};
+use crate::common::ctx::AppContext;
 use crate::common::error::{FlareErr, Result};
 use async_trait::async_trait;
 use log::debug;
@@ -6,14 +6,14 @@ use protobuf_codegen::{Command, ResCode, Response};
 
 use crate::server::auth_handler::{AuthCommandHandler, AuthHandler, DefAuthHandler};
 use crate::server::server::ConnectionInfo;
-use crate::server::server_handler::{DefServerHandler, ServerCommandHandler};
+use crate::server::server_handler::{DefServerHandler, ServerCommandHandler, ServerHandler};
 use crate::server::sys_handler::{DefSystemHandler, SystemCommandHandler, SystemHandler};
 
 /// 命令处理器 trait
 #[async_trait]
 pub trait CommandHandler: Send + Sync {
     /// 处理命令
-    async fn handle_command(&self, ctx: &AppContext) -> Result<Response>;
+    async fn handle_command(&self, ctx:  &AppContext) -> Result<Response>;
     
     /// 获取支持的命令列表
     fn supported_commands(&self) -> Vec<Command>;
@@ -25,27 +25,27 @@ pub trait CommandHandler: Send + Sync {
 }
 
 /// 组合所有命令处理器
-pub struct ServerMessageHandler {
-    auth_handler: AuthCommandHandler<DefAuthHandler>,
-    server_handler: ServerCommandHandler<DefServerHandler>,
-    system_handler: SystemCommandHandler<DefSystemHandler>,
+pub struct ServerMessageHandler<S, A, Y> 
+where
+    S: ServerHandler,
+    A: AuthHandler,
+    Y: SystemHandler,
+{
+    auth_handler: AuthCommandHandler<A>,
+    server_handler: ServerCommandHandler<S>,
+    system_handler: SystemCommandHandler<Y>,
 }
 
-impl Default for ServerMessageHandler {
-    fn default() -> Self {
-        Self {
-            auth_handler: AuthCommandHandler::new(DefAuthHandler::new()),
-            server_handler: ServerCommandHandler::new(DefServerHandler::new()),
-            system_handler: SystemCommandHandler::new(DefSystemHandler::new()),
-        }
-    }
-}
-
-impl ServerMessageHandler {
+impl<S, A, Y> ServerMessageHandler<S, A, Y>
+where
+    S: ServerHandler,
+    A: AuthHandler,
+    Y: SystemHandler,
+{
     pub fn new(
-        auth_handler: AuthCommandHandler<DefAuthHandler>,
-        server_handler: ServerCommandHandler<DefServerHandler>,
-        system_handler: SystemCommandHandler<DefSystemHandler>,
+        auth_handler: AuthCommandHandler<A>,
+        server_handler: ServerCommandHandler<S>,
+        system_handler: SystemCommandHandler<Y>,
     ) -> Self {
         Self {
             auth_handler,
@@ -70,19 +70,24 @@ impl ServerMessageHandler {
         }
     }
     /// 处理新链接
-    pub async fn handle_new_connection(&self, ctx: &AppContext, conn: &ConnectionInfo) -> Result<Response> {
+    pub async fn handle_new_connection(&self, ctx:  &AppContext, conn: &ConnectionInfo) -> Result<Response> {
         self.system_handler.handle_new_connection(ctx, conn).await
     }
     /// 认证
-    pub async fn handle_auth(&self, ctx: &AppContext) -> Result<Response> {
+    pub async fn handle_auth(&self, ctx:  &AppContext) -> Result<Response> {
         self.auth_handler.handle_login(ctx).await
     }
   
 }
 
 #[async_trait]
-impl CommandHandler for ServerMessageHandler {
-    async fn handle_command(&self, ctx: &AppContext) -> Result<Response> {
+impl<S, A, Y> CommandHandler for ServerMessageHandler<S, A, Y>
+where
+    S: ServerHandler + Send + Sync + 'static,
+    A: AuthHandler + Send + Sync + 'static,
+    Y: SystemHandler + Send + Sync + 'static,
+{
+    async fn handle_command(&self, ctx:  &AppContext) -> Result<Response> {
         let command = ctx.command().ok_or_else(|| 
             FlareErr::invalid_command("Missing command"))?;
 
@@ -119,13 +124,28 @@ impl CommandHandler for ServerMessageHandler {
     }
 }
 
+impl<S, A, Y> Default for ServerMessageHandler<S, A, Y>
+where
+    S: ServerHandler + Default + Send + Sync + 'static,
+    A: AuthHandler + Default + Send + Sync + 'static,
+    Y: SystemHandler + Default + Send + Sync + 'static,
+{
+    fn default() -> Self {
+        Self::new(
+            AuthCommandHandler::new(A::default()),
+            ServerCommandHandler::new(S::default()),
+            SystemCommandHandler::new(Y::default())
+        )
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
 
     #[tokio::test]
     async fn test_message_handler() {
-        let handler = ServerMessageHandler::default();
+        let handler = ServerMessageHandler::<DefServerHandler, DefAuthHandler, DefSystemHandler>::default();
         
         // 测试支持的命令
         let commands = handler.supported_commands();
@@ -136,7 +156,7 @@ mod tests {
         assert!(commands.contains(&Command::Pong));
 
         // 测试 Ping 命令
-        let mut ctx = AppContext::default();
+        let ctx = AppContext::default();
         let response = handler.handle_command(&ctx).await.unwrap();
         assert_eq!(response.code, ResCode::Success as i32);
         assert_eq!(response.message, "PONG");

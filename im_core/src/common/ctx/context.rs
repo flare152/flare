@@ -1,10 +1,9 @@
-use std::sync::{Arc, Mutex};
+use crate::common::ctx::extensions::Extensions;
+use crate::common::error::{FlareErr, Result};
 use log::debug;
 use prost::Message;
 use protobuf_codegen::{Command, Platform};
-use crate::common::ctx::extensions::Extensions;
-use crate::common::ctx::traits::{Context,TypeContext};
-use crate::common::error::{FlareErr,Result};
+use std::sync::{Arc, Mutex};
 
 #[derive(Default)]
 pub struct AppContext {
@@ -19,62 +18,66 @@ pub struct AppContext {
     conn_id: String,
     client_msg_id: String,
 }
-#[async_trait::async_trait]
-impl Context for AppContext {
-    fn remote_addr(&self) -> &str {
+
+impl AppContext {
+    // 基础信息获取
+    pub fn remote_addr(&self) -> &str {
         &self.remote_addr
     }
 
-    fn command(&self) -> Option<Command> {
+    pub fn command(&self) -> Option<Command> {
         self.command
     }
 
-    fn user_id(&self) -> Option<&str> {
+    pub fn user_id(&self) -> Option<&str> {
         self.user_id.as_deref()
     }
 
-    fn platform(&self) -> Option<Platform> {
+    pub fn platform(&self) -> Option<Platform> {
         self.platform
     }
 
-    fn client_id(&self) -> Option<&str> {
+    pub fn client_id(&self) -> Option<&str> {
         self.client_id.as_deref()
     }
 
-    fn language(&self) -> Option<&str> {
+    pub fn language(&self) -> Option<&str> {
         self.language.as_deref()
     }
 
-    fn data(&self) -> &[u8] {
+    // 数据操作相关
+    pub fn data(&self) -> &[u8] {
         &self.data
     }
 
-    fn set_data(&mut self, data: Vec<u8>) {
+    pub fn set_data(&mut self, data: Vec<u8>) {
         self.data = data;
     }
 
-    fn get_data_as<T: Message + Default>(&self) -> Result<T> {
+    pub fn get_data_as<T: Message + Default>(&self) -> Result<T> {
         T::decode(&self.data[..])
             .map_err(|e| FlareErr::DecodeError(e))
     }
-    fn msg_id(&self) -> Result<String> {
+
+    // 数据类型转换
+    pub fn msg_id(&self) -> Result<String> {
         String::from_utf8(self.data.clone())
             .map_err(|e| FlareErr::DecodeError(prost::DecodeError::new(e.to_string())))
     }
 
-    fn bool_data(&self) -> Result<bool> {
+    pub fn bool_data(&self) -> Result<bool> {
         if self.data.is_empty() {
             return Err(FlareErr::InvalidParams("数据为空".to_string()));
         }
         Ok(self.data[0] != 0)
     }
 
-    fn string_data(&self) -> Result<String> {
+    pub fn string_data(&self) -> Result<String> {
         String::from_utf8(self.data.clone())
             .map_err(|e| FlareErr::DecodeError(prost::DecodeError::new(e.to_string())))
     }
 
-    fn int_data(&self) -> Result<i64> {
+    pub fn int_data(&self) -> Result<i64> {
         if self.data.len() < 8 {
             return Err(FlareErr::InvalidParams("数据长度不足".to_string()));
         }
@@ -83,7 +86,7 @@ impl Context for AppContext {
         Ok(i64::from_le_bytes(bytes))
     }
 
-    fn float_data(&self) -> Result<f64> {
+    pub fn float_data(&self) -> Result<f64> {
         if self.data.len() < 8 {
             return Err(FlareErr::InvalidParams("数据长度不足".to_string()));
         }
@@ -92,27 +95,25 @@ impl Context for AppContext {
         Ok(f64::from_le_bytes(bytes))
     }
 
-    fn bytes_data(&self) -> &[u8] {
-        &self.data
-    }
-
-    fn contains<T: Send + Sync + 'static>(&self) -> bool {
+    // 扩展功能
+    pub fn contains<T: Send + Sync + 'static>(&self) -> bool {
         self.extensions.lock().unwrap().contains::<T>()
     }
 
-    fn get<T: Send + Sync + 'static>(&self) -> Option<Arc<T>> {
+    pub fn get<T: Send + Sync + 'static>(&self) -> Option<Arc<T>> {
         self.extensions.lock().unwrap().get::<Arc<T>>().map(|v| v.clone())
     }
 
-    fn set<T: Send + Sync + 'static>(&mut self, val: T) {
+    pub fn set<T: Send + Sync + 'static>(&mut self, val: T) {
         self.extensions.lock().unwrap().insert(val);
     }
 
-    fn remove<T: Send + Sync + 'static>(&mut self) -> Option<T> {
+    pub fn remove<T: Send + Sync + 'static>(&mut self) -> Option<T> {
         self.extensions.lock().unwrap().remove()
     }
 
-    fn destroy(&mut self) {
+    // 生命周期管理
+    pub fn destroy(&mut self) {
         debug!("Destroying AppContext for connection: {}", self.remote_addr);
         self.extensions.lock().unwrap().clear();
         self.data.clear();
@@ -123,25 +124,6 @@ impl Context for AppContext {
         self.language = None;
         self.conn_id = String::new();
         self.client_msg_id = String::new();
-    }
-}
-
-
-impl TypeContext for AppContext {
-    fn contains<T: Send + Sync + 'static>(&self) -> bool {
-        self.extensions.lock().unwrap().contains::<T>()
-    }
-
-    fn get<T: Send + Sync + 'static>(&self) -> Option<Arc<T>> {
-        self.extensions.lock().unwrap().get::<Arc<T>>().map(|v| v.clone())
-    }
-
-    fn set<T: Send + Sync + 'static>(&mut self, val: T) {
-        self.extensions.lock().unwrap().insert(val);
-    }
-
-    fn remove<T: Send + Sync + 'static>(&mut self) -> Option<T> {
-        self.extensions.lock().unwrap().remove()
     }
 }
 

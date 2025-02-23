@@ -13,6 +13,11 @@ use std::io::{self, Write};
 use std::net::{AddrParseError, IpAddr, Ipv4Addr, SocketAddr};
 use std::pin::Pin;
 use std::sync::Arc;
+use im_core::server::auth_handler::DefAuthHandler;
+use im_core::server::handlers::ServerMessageHandler;
+use im_core::server::server::Server;
+use im_core::server::server_handler::DefServerHandler;
+use im_core::server::sys_handler::DefSystemHandler;
 
 // 辅助函数：解析地址
 fn parse_addr(addr: &str) -> Result<SocketAddr> {
@@ -34,8 +39,8 @@ async fn run_server() -> Result<()> {
     
     info!("QUIC 聊天服务器监听端口: {}", addr);
 
-    let server = Arc::new(im_core::server::server::Server::new(
-        im_core::server::handlers::ServerMessageHandler::default()
+    let server = Arc::new(Server::<DefServerHandler, DefAuthHandler, DefSystemHandler>::new(
+        ServerMessageHandler::<DefServerHandler, DefAuthHandler, DefSystemHandler>::default()
     ));
 
     while let Some(conn) = endpoint.accept().await {

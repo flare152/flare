@@ -1,5 +1,4 @@
 use crate::common::ctx::AppContext;
-use crate::common::ctx::Context;
 use crate::common::error::{FlareErr, Result};
 use crate::server::handlers::CommandHandler;
 use async_trait::async_trait;
@@ -11,10 +10,10 @@ use protobuf_codegen::{Command, ResCode, Response};
 #[async_trait]
 pub trait AuthHandler: Send + Sync {
     /// 处理登录请求
-    async fn handle_login(&self, ctx: &AppContext) -> Result<Response>;
+    async fn handle_login(&self, ctx:  &AppContext) -> Result<Response>;
 
     /// 处理登出请求
-    async fn handle_logout(&self, ctx: &AppContext) -> Result<Response>;
+    async fn handle_logout(&self, ctx:  &AppContext) -> Result<Response>;
 }
 
 /// 认证命令处理器
@@ -29,18 +28,18 @@ impl<T> AuthCommandHandler<T> {
 // 实现 AuthHandler
 #[async_trait]
 impl<T: AuthHandler + Send + Sync> AuthHandler for AuthCommandHandler<T> {
-    async fn handle_login(&self, ctx: &AppContext) -> Result<Response> {
+    async fn handle_login(&self, ctx:  &AppContext) -> Result<Response> {
         self.0.handle_login(ctx).await
     }
 
-    async fn handle_logout(&self, ctx: &AppContext) -> Result<Response> {
+    async fn handle_logout(&self, ctx:  &AppContext) -> Result<Response> {
         self.0.handle_logout(ctx).await
     }
 }
 
 #[async_trait]
 impl<T: AuthHandler + Send + Sync> CommandHandler for AuthCommandHandler<T> {
-    async fn handle_command(&self, ctx: &AppContext) -> Result<Response> {
+    async fn handle_command(&self, ctx:  &AppContext) -> Result<Response> {
         let command = ctx.command().ok_or_else(|| 
             FlareErr::invalid_command("Missing command"))?;
 
@@ -79,8 +78,8 @@ impl DefAuthHandler {
 
 #[async_trait]
 impl AuthHandler for DefAuthHandler {
-    async fn handle_login(&self, ctx: &AppContext) -> Result<Response> {
-        let req = Context::get_data_as::<LoginReq>(ctx)?;
+    async fn handle_login(&self, ctx:  &AppContext) -> Result<Response> {
+        let req = ctx.get_data_as::<LoginReq>()?;
         debug!("处理登录请求 - addr: {}, userid: {}", ctx.remote_addr(), req.user_id);
 
         // 这里可以添加实际的登录验证逻辑
@@ -102,7 +101,7 @@ impl AuthHandler for DefAuthHandler {
         })
     }
 
-    async fn handle_logout(&self, ctx: &AppContext) -> Result<Response> {
+    async fn handle_logout(&self, ctx:  &AppContext) -> Result<Response> {
         debug!("处理登出请求 - addr: {}", ctx.remote_addr());
         
         if let Some(user_id) = ctx.user_id() {

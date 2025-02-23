@@ -1,5 +1,4 @@
 use crate::common::ctx::AppContext;
-use crate::common::ctx::Context;
 use crate::common::error::{FlareErr, Result};
 use crate::server::handlers::CommandHandler;
 use crate::server::server::ConnectionInfo;
@@ -10,13 +9,13 @@ use protobuf_codegen::{Command, ResCode, Response};
 #[async_trait]
 pub trait SystemHandler: Send + Sync {
     /// 处理新链接
-    async fn handle_new_connection(&self, ctx: &AppContext,conn : &ConnectionInfo) -> Result<Response>;
+    async fn handle_new_connection(&self, ctx:  &AppContext,conn : &ConnectionInfo) -> Result<Response>;
     /// 设置后台运行
-    async fn handle_set_background(&self, ctx: &AppContext, background: bool) -> Result<Response>;
+    async fn handle_set_background(&self, ctx:  &AppContext, background: bool) -> Result<Response>;
     /// 设置语言
-    async fn handle_set_language(&self, ctx: &AppContext, language: String) -> Result<Response>;
+    async fn handle_set_language(&self, ctx:  &AppContext, language: String) -> Result<Response>;
     /// 关闭
-    async fn handle_close(&self, ctx: &AppContext) -> Result<Response>;
+    async fn handle_close(&self, ctx:  &AppContext) -> Result<Response>;
 }
 
 /// 系统命令处理器
@@ -31,25 +30,25 @@ impl<T> SystemCommandHandler<T> {
 // 实现 SystemHandler
 #[async_trait]
 impl<T: SystemHandler + Send + Sync> SystemHandler for SystemCommandHandler<T> {
-    async fn handle_new_connection(&self, ctx: &AppContext, conn: &ConnectionInfo) -> Result<Response> {
+    async fn handle_new_connection(&self, ctx:  &AppContext, conn: &ConnectionInfo) -> Result<Response> {
         self.0.handle_new_connection(ctx, conn).await
     }
 
-    async fn handle_set_background(&self, ctx: &AppContext, background: bool) -> Result<Response> {
+    async fn handle_set_background(&self, ctx:  &AppContext, background: bool) -> Result<Response> {
         self.0.handle_set_background(ctx, background).await
     }
 
-    async fn handle_set_language(&self, ctx: &AppContext, language: String) -> Result<Response> {
+    async fn handle_set_language(&self, ctx:  &AppContext, language: String) -> Result<Response> {
         self.0.handle_set_language(ctx, language).await
     }
-    async fn handle_close(&self, ctx: &AppContext) -> Result<Response> {
+    async fn handle_close(&self, ctx:  &AppContext) -> Result<Response> {
         self.0.handle_close(ctx).await
     }
 }
 
 #[async_trait]
 impl<T: SystemHandler + Send + Sync> CommandHandler for SystemCommandHandler<T> {
-    async fn handle_command(&self, ctx: &AppContext) -> Result<Response> {
+    async fn handle_command(&self, ctx:  &AppContext) -> Result<Response> {
         let command = ctx.command().ok_or_else(|| 
             FlareErr::invalid_command("Missing command"))?;
 
@@ -96,7 +95,7 @@ impl DefSystemHandler {
 
 #[async_trait]
 impl SystemHandler for DefSystemHandler {
-    async fn handle_new_connection(&self, ctx: &AppContext, conn: &ConnectionInfo) -> Result<Response> {
+    async fn handle_new_connection(&self, ctx:  &AppContext, conn: &ConnectionInfo) -> Result<Response> {
         debug!("处理新连接请求 - addr: {}, conn_id: {}", ctx.remote_addr(), conn.get_conn_id());
         Ok(Response {
             code: ResCode::Success as i32,
@@ -105,7 +104,7 @@ impl SystemHandler for DefSystemHandler {
         })
     }
     
-    async fn handle_set_background(&self, ctx: &AppContext, background: bool) -> Result<Response> {
+    async fn handle_set_background(&self, ctx:  &AppContext, background: bool) -> Result<Response> {
         debug!("处理设置后台运行请求 - addr: {}, background: {}", ctx.remote_addr(), background);
 
         // 这里可以添加实际的后台运行设置逻辑
@@ -116,7 +115,7 @@ impl SystemHandler for DefSystemHandler {
         })
     }
 
-    async fn handle_set_language(&self, ctx: &AppContext, language: String) -> Result<Response> {
+    async fn handle_set_language(&self, ctx:  &AppContext, language: String) -> Result<Response> {
         debug!("处理设置语言请求 - addr: {}, language: {}", ctx.remote_addr(), language);
 
         // 这里可以添加语言设置验证逻辑
@@ -135,7 +134,7 @@ impl SystemHandler for DefSystemHandler {
         })
     }
 
-    async fn handle_close(&self, ctx: &AppContext) -> Result<Response> {
+    async fn handle_close(&self, ctx:  &AppContext) -> Result<Response> {
         debug!("处理关闭连接请求 - addr: {}", ctx.remote_addr());
         
         if let Some(user_id) = ctx.user_id() {

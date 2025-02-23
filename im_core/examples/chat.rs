@@ -7,11 +7,11 @@ use im_core::client::sys_handler::ClientSystemHandler;
 use im_core::common::ctx::{AppContext, Context};
 use im_core::common::error::{FlareErr, Result};
 use im_core::connections::{Connection, WsConnection};
-use im_core::server::auth_handler::AuthHandler;
+use im_core::server::auth_handler::{AuthHandler, DefAuthHandler};
 use im_core::server::handlers::ServerMessageHandler;
 use im_core::server::server::Server;
-use im_core::server::server_handler::ServerHandler;
-use im_core::server::sys_handler::SystemHandler;
+use im_core::server::server_handler::{DefServerHandler, ServerHandler};
+use im_core::server::sys_handler::{DefSystemHandler, SystemHandler};
 use log::{debug, error, info};
 use protobuf_codegen::{Command, Message as ProtoMessage, Platform, Response};
 use std::future::Future;
@@ -59,7 +59,7 @@ struct ChatServerHandler;
 
 #[async_trait]
 impl ServerHandler for ChatServerHandler {
-    async fn handle_send_message(&self, ctx: &AppContext) -> Result<Response> {
+    async fn handle_send_message(&self, ctx:  &AppContext) -> Result<Response> {
         let msg = Context::string_data(ctx)?;
         let prefix = "你好, ".to_string();
         let content = format!("{}{}", prefix, msg);
@@ -71,17 +71,17 @@ impl ServerHandler for ChatServerHandler {
         })
     }
 
-    async fn handle_pull_message(&self, _ctx: &AppContext) -> Result<Response> {
+    async fn handle_pull_message(&self, _ctx:  &AppContext) -> Result<Response> {
         debug!("处理拉取消息请求");
         Ok(Response::default())
     }
 
-    async fn handle_request(&self, _ctx: &AppContext) -> Result<Response> {
+    async fn handle_request(&self, _ctx:  &AppContext) -> Result<Response> {
         debug!("处理数据请求");
         Ok(Response::default())
     }
 
-    async fn handle_ack(&self, _ctx: &AppContext) -> Result<Response> {
+    async fn handle_ack(&self, _ctx:  &AppContext) -> Result<Response> {
         debug!("处理消息确认");
         Ok(Response::default())
     }
@@ -92,7 +92,7 @@ async fn run_server() -> Result<()> {
     let listener = TcpListener::bind(addr).await.map_err(|e| FlareErr::ConnectionError(e.to_string()))?;
     info!("聊天服务器监听端口: {}", addr);
 
-    let server = Server::new(ServerMessageHandler::default());
+    let server = Server::<DefServerHandler, DefAuthHandler, DefSystemHandler>::new(ServerMessageHandler::default());
 
     while let Ok((stream, addr)) = listener.accept().await {
         info!("新客户端连接: {}", addr);

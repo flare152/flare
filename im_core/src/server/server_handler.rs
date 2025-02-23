@@ -1,5 +1,4 @@
 use crate::common::ctx::AppContext;
-use crate::common::ctx::Context;
 use crate::common::error::{FlareErr, Result};
 use crate::server::handlers::CommandHandler;
 use async_trait::async_trait;
@@ -10,16 +9,16 @@ use protobuf_codegen::{Command, ResCode, Response};
 #[async_trait]
 pub trait ServerHandler: Send + Sync {
     /// 处理发送消息
-    async fn handle_send_message(&self, ctx: &AppContext) -> Result<Response>;
+    async fn handle_send_message(&self, ctx:  &AppContext) -> Result<Response>;
 
     /// 处理拉取消息
-    async fn handle_pull_message(&self, ctx: &AppContext) -> Result<Response>;
+    async fn handle_pull_message(&self, ctx:  &AppContext) -> Result<Response>;
 
     /// 处理数据请求
-    async fn handle_request(&self, ctx: &AppContext) -> Result<Response>;
+    async fn handle_request(&self, ctx:  &AppContext) -> Result<Response>;
 
     /// 处理消息ack
-    async fn handle_ack(&self, ctx: &AppContext) -> Result<Response>;
+    async fn handle_ack(&self, ctx:  &AppContext) -> Result<Response>;
 }
 
 /// 服务端命令处理器
@@ -34,26 +33,26 @@ impl<T> ServerCommandHandler<T> {
 // 实现 ServerHandler
 #[async_trait]
 impl<T: ServerHandler + Send + Sync> ServerHandler for ServerCommandHandler<T> {
-    async fn handle_send_message(&self, ctx: &AppContext) -> Result<Response> {
+    async fn handle_send_message(&self, ctx:  &AppContext) -> Result<Response> {
         self.0.handle_send_message(ctx).await
     }
 
-    async fn handle_pull_message(&self, ctx: &AppContext) -> Result<Response> {
+    async fn handle_pull_message(&self, ctx:  &AppContext) -> Result<Response> {
         self.0.handle_pull_message(ctx).await
     }
 
-    async fn handle_request(&self, ctx: &AppContext) -> Result<Response> {
+    async fn handle_request(&self, ctx:  &AppContext) -> Result<Response> {
         self.0.handle_request(ctx).await
     }
 
-    async fn handle_ack(&self, ctx: &AppContext) -> Result<Response> {
+    async fn handle_ack(&self, ctx:  &AppContext) -> Result<Response> {
         self.0.handle_ack(ctx).await
     }
 }
 
 #[async_trait]
 impl<T: ServerHandler + Send + Sync> CommandHandler for ServerCommandHandler<T> {
-    async fn handle_command(&self, ctx: &AppContext) -> Result<Response> {
+    async fn handle_command(&self, ctx:  &AppContext) -> Result<Response> {
         let command = ctx.command().ok_or_else(|| 
             FlareErr::invalid_command("Missing command"))?;
 
@@ -100,7 +99,7 @@ impl DefServerHandler {
 
 #[async_trait]
 impl ServerHandler for DefServerHandler {
-    async fn handle_send_message(&self, ctx: &AppContext) -> Result<Response> {
+    async fn handle_send_message(&self, ctx:  &AppContext) -> Result<Response> {
         debug!("处理发送消息请求 - addr: {}", ctx.remote_addr());
 
         let message = ctx.string_data()?;
@@ -120,7 +119,7 @@ impl ServerHandler for DefServerHandler {
         })
     }
 
-    async fn handle_pull_message(&self, ctx: &AppContext) -> Result<Response> {
+    async fn handle_pull_message(&self, ctx:  &AppContext) -> Result<Response> {
         debug!("处理拉取消息请求 - addr: {}", ctx.remote_addr());
 
         // 这里可以添加实际的消息拉取逻辑
@@ -131,7 +130,7 @@ impl ServerHandler for DefServerHandler {
         })
     }
 
-    async fn handle_request(&self, ctx: &AppContext) -> Result<Response> {
+    async fn handle_request(&self, ctx:  &AppContext) -> Result<Response> {
         debug!("处理数据请求 - addr: {}", ctx.remote_addr());
 
         // 这里可以添加实际的数据请求处理逻辑
@@ -142,7 +141,7 @@ impl ServerHandler for DefServerHandler {
         })
     }
 
-    async fn handle_ack(&self, ctx: &AppContext) -> Result<Response> {
+    async fn handle_ack(&self, ctx:  &AppContext) -> Result<Response> {
         debug!("处理消息确认 - addr: {}", ctx.remote_addr());
 
         let msg_id = ctx.msg_id()?;

@@ -10,6 +10,13 @@ use std::collections::HashMap;
 use std::sync::Arc;
 use tokio::sync::Mutex;
 use tokio::time::{interval, Duration};
+use crate::server::auth_handler::AuthHandler;
+use crate::server::server_handler::ServerHandler;
+use crate::server::sys_handler::SystemHandler;
+
+use super::auth_handler::DefAuthHandler;
+use super::server_handler::DefServerHandler;
+use super::sys_handler::DefSystemHandler;
 
 const HEARTBEAT_INTERVAL: Duration = Duration::from_secs(30);
 const CONNECTION_TIMEOUT: Duration = Duration::from_secs(90);
@@ -74,14 +81,24 @@ impl ConnectionInfo {
     }
 }
 
-pub struct Server {
-    handler: Arc<ServerMessageHandler>,
+pub struct Server<S, A, Y>
+where
+    S: ServerHandler + Send + Sync + 'static,
+    A: AuthHandler + Send + Sync + 'static,
+    Y: SystemHandler + Send + Sync + 'static,
+{
+    handler: Arc<ServerMessageHandler<S, A, Y>>,
     connections: Arc<Mutex<HashMap<String, ConnectionInfo>>>, // conn_id -> ConnectionInfo
     user_connections: Arc<Mutex<HashMap<String, Vec<String>>>>, // user_id -> Vec<conn_id>
 }
 
-impl Server {
-    pub fn new(handler: ServerMessageHandler) -> Self {
+impl<S, A, Y> Server<S, A, Y>
+where
+    S: ServerHandler + Send + Sync + 'static,
+    A: AuthHandler + Send + Sync + 'static,
+    Y: SystemHandler + Send + Sync + 'static,
+{
+    pub fn new(handler: ServerMessageHandler<S, A, Y>) -> Self {
         let server = Self {
             handler: Arc::new(handler),
             connections: Arc::new(Mutex::new(HashMap::new())),
@@ -418,7 +435,7 @@ impl Server {
             .unwrap_or_default()
     }
 
-    pub fn get_handler_mut(&mut self) -> &mut ServerMessageHandler {
+    pub fn get_handler_mut(&mut self) -> &mut ServerMessageHandler<S, A, Y> {
         Arc::get_mut(&mut self.handler).unwrap()
     }
     /// 发送响应消息
@@ -438,19 +455,23 @@ impl Server {
     }
 }
 
-impl Default for Server {
-    fn default() -> Self {
-        Self::new(ServerMessageHandler::default())
-    }
-}
-
 // 新增一个辅助结构体来处理生命周期问题
-struct ServerHandle {
-    handler: Arc<ServerMessageHandler>,
+struct ServerHandle<S, A, Y>
+where
+    S: ServerHandler + Send + Sync + 'static,
+    A: AuthHandler + Send + Sync + 'static,
+    Y: SystemHandler + Send + Sync + 'static,
+{
+    handler: Arc<ServerMessageHandler<S, A, Y>>,
     connections: Arc<Mutex<HashMap<String, ConnectionInfo>>>,
 }
 
-impl ServerHandle {
+impl<S, A, Y> ServerHandle<S, A, Y>
+where
+    S: ServerHandler + Send + Sync + 'static,
+    A: AuthHandler + Send + Sync + 'static,
+    Y: SystemHandler + Send + Sync + 'static,
+{
     async fn build_context(&self, builder: AppContextBuilder, conn_id: String, client_msg_id: String) -> Option<AppContext> {
         match builder
             .with_conn_id(conn_id)
@@ -475,5 +496,11 @@ impl ServerHandle {
             debug!("Connection not found: {}", conn_id);
             Err(FlareErr::ConnectionNotFound)
         }
+    }
+}
+
+impl Default for Server<DefServerHandler, DefAuthHandler, DefSystemHandler> {
+    fn default() -> Self {
+        Self::new(ServerMessageHandler::<DefServerHandler, DefAuthHandler, DefSystemHandler>::default())
     }
 } 

@@ -52,8 +52,8 @@ pub struct Client<F>
 where
     F: Fn() -> Pin<Box<dyn Future<Output = Result<Box<dyn Connection>>> + Send + Sync>> + Send + Sync + 'static,
 {
-    config: ClientConfig,
-    connector: Arc<F>,
+    config: Arc<Mutex<ClientConfig>>,
+    connector: Arc<Mutex<F>>,
     handler: Arc<ClientMessageHandler<DefClientSystemHandler, DefMessageHandler>>,
     state: Arc<Mutex<ClientState>>,
     conn: Arc<Mutex<Option<Box<dyn Connection>>>>,
@@ -80,8 +80,8 @@ where
         let pending_requests = Arc::new(Mutex::new(HashMap::new()));
 
         let client = Self {
-            config,
-            connector: Arc::new(connector),
+            config: Arc::new(Mutex::new(config)),
+            connector: Arc::new(Mutex::new(connector)),
             handler,
             state,
             conn,
@@ -97,12 +97,229 @@ where
         client
     }
 
-    // 修改为返回 Arc<Box<dyn Connection>> 以避免重复克隆
+    /// 连接到服务器
+    pub async fn connect(&self) -> Result<()> {
+        *self.state.lock().await = ClientState::Connecting;
+        self.handler.handle_state_change(ClientState::Connecting).await;
+
+        // 认证
+        self.authenticate().await?;
+        
+        // 创建连接
+        let connector = self.connector.lock().await;
+        let new_conn = (connector)().await?;
+        *self.conn.lock().await = Some(new_conn);
+
+        // 启动消息接收循环
+        self.spawn_receiver();
+        
+        // 更新状态
+        self.set_state(ClientState::Connected).await;
+        Ok(())
+    }
+
+    /// 重连
+    pub async fn reconnect(&self) -> Result<()> {
+        let mut attempt = 0;
+        while attempt < self.config.lock().await.max_reconnect_attempts {
+            self.set_state(ClientState::Reconnecting { attempt }).await;
+            
+            match self.connect().await {
+                Ok(()) => return Ok(()),
+                Err(e) => {
+                    error!("Reconnection attempt {} failed: {}", attempt, e);
+                    attempt += 1;
+                    sleep(self.config.lock().await.reconnect_interval).await;
+                }
+            }
+        }
+        
+        Err(anyhow::anyhow!("Max reconnection attempts reached").into())
+    }
+
+    /// 关闭连接
+    pub async fn close(&self) -> Result<()> {
+        *self.is_running.lock().await = false;
+        if let Some(conn) = self.conn.lock().await.as_ref() {
+            conn.close().await?;
+        }
+        Ok(())
+    }
+
+    /// 等待连接就绪
+    pub async fn wait_ready(&self, timeout: Duration) -> Result<()> {
+        let start = Instant::now();
+        while start.elapsed() < timeout {
+            if self.is_connected().await {
+                return Ok(());
+            }
+            sleep(Duration::from_millis(100)).await;
+        }
+        Err(anyhow::anyhow!("Connection timeout").into())
+    }
+
+    /// 获取当前连接
+    pub async fn get_connection(&self) -> Result<Box<dyn Connection>> {
+        if let Some(conn) = &*self.conn.lock().await {
+            Ok(conn.clone_box())
+        } else {
+            Err(FlareErr::ConnectionNotFound)
+        }
+    }
+
+    /// 更新连接
+    pub async fn update_connection(&self, connection: Box<dyn Connection>, new_config: ClientConfig) -> Result<()> {
+        // 更新连接
+        let mut conn = self.conn.lock().await;
+        *conn = Some(connection);
+        drop(conn);
+
+        // 更新配置
+        let mut config = self.config.lock().await;
+        *config = new_config;
+        drop(config);
+
+        // 设置状态为连接中
+        self.set_state(ClientState::Connecting).await;
+
+        // 启动消息接收循环
+        self.spawn_receiver();
+
+        // 启动心跳检测
+        self.spawn_keepalive();
+
+        // 进行认证
+        self.authenticate().await?;
+
+        // 设置状态为已连接
+        self.set_state(ClientState::Connected).await;
+
+        // 等待连接就绪
+        self.wait_ready(Duration::from_secs(5)).await?;
+
+        Ok(())
+    }
+
+    /// 发送消息
+    pub async fn send(&self, msg: ProtoMessage) -> Result<()> {
+        if !*self.is_running.lock().await {
+            return Err(anyhow::anyhow!("Client is not running").into());
+        }
+        self.message_sender.send(msg).await
+            .map_err(|e| anyhow::anyhow!("Failed to send message: {}", e))?;
+        Ok(())
+    }
+
+    /// 发送消息并等待响应
+    pub async fn send_wait(&self, msg: ProtoMessage) -> Result<Response> {
+        // 创建一个新的可变消息
+        let mut new_msg = msg;
+        new_msg.client_id = uuid::Uuid::new_v4().to_string();
+
+        // 创建响应通道
+        let (tx, rx) = oneshot::channel();
+        {
+            let mut pending = self.pending_requests.lock().await;
+            pending.insert(new_msg.client_id.clone(), tx);
+        }
+
+        // 发送消息
+        self.send(new_msg).await?;
+        // 等待响应
+        match rx.await {
+            Ok(response) => Ok(response),
+            Err(_) => Err(anyhow::anyhow!("Response channel closed").into())
+        }
+    }
+
+    /// 发送消息并等待响应，带超时
+    pub async fn send_wait_timeout(&self, msg: ProtoMessage, timeout: Duration) -> Result<Response> {
+        tokio::time::timeout(timeout, self.send_wait(msg))
+            .await
+            .map_err(|_| FlareErr::ConnectionError("Request timeout".to_string()))?
+    }
+
+    /// 获取当前状态
+    pub async fn get_state(&self) -> ClientState {
+        self.state.lock().await.clone()
+    }
+
+    /// 检查连接是否可用
+    pub async fn is_connected(&self) -> bool {
+        if !*self.is_running.lock().await {
+            return false;
+        }
+
+        match self.get_state().await {
+            ClientState::Connected | ClientState::Authenticated => {
+                let last_pong = *self.last_pong.lock().await;
+                if last_pong.elapsed() > self.config.lock().await.pong_timeout {
+                    return false;
+                }
+
+                let ping = ProtoMessage {
+                    command: Command::Ping as i32,
+                    ..Default::default()
+                };
+
+                let conn_ref = Self::get_connection_ref(&self.conn).await;
+                if let Some(conn_ref) = conn_ref {
+                    match conn_ref.send(ping).await {
+                        Ok(_) => true,
+                        Err(_) => false,
+                    }
+                } else {
+                    false
+                }
+            }
+            _ => false,
+        }
+    }
+
+    /// 获取连接状态详情
+    pub async fn connection_status(&self) -> ConnectionStatus {
+        ConnectionStatus {
+            state: self.get_state().await,
+            is_running: *self.is_running.lock().await,
+            last_pong_elapsed: self.last_pong.lock().await.elapsed(),
+            has_active_connection: self.conn.lock().await.is_some(),
+        }
+    }
+
+    // 认证相关
+    async fn authenticate(&self) -> Result<()> {
+        self.set_state(ClientState::Authenticating).await;
+        let req = LoginReq {
+            user_id: self.config.lock().await.user_id.clone(),
+            platform: self.config.lock().await.platform as i32,
+            client_id: self.config.lock().await.client_id.clone(),
+            token: self.config.lock().await.auth_token.clone(),
+            ..Default::default()
+        };
+        let auth_msg = ProtoMessage {
+            command: Command::Login as i32,
+            data: req.encode_to_vec(),
+            ..Default::default()
+        };
+        
+        self.send(auth_msg).await?;
+        self.set_state(ClientState::Authenticated).await;
+        Ok(())
+    }
+
+    // 状态管理
+    async fn set_state(&self, new_state: ClientState) {
+        let mut state = self.state.lock().await;
+        *state = new_state.clone();
+        self.handler.handle_state_change(new_state).await;
+    }
+
+    // 连接管理
     async fn get_connection_ref(conn: &Arc<Mutex<Option<Box<dyn Connection>>>>) -> Option<Arc<Box<dyn Connection>>> {
         conn.lock().await.as_ref().map(|c| Arc::new(c.clone_box()))
     }
 
-    // 使用批量发送缓冲区
+    // 后台任务
     fn spawn_sender(&self, mut rx: mpsc::Receiver<ProtoMessage>) {
         let conn = self.conn.clone();
         let is_running = self.is_running.clone();
@@ -155,40 +372,6 @@ where
         });
     }
 
-    // 批量发送消息
-    async fn flush_messages(
-        conn_ref: &mut Option<Arc<Box<dyn Connection>>>,
-        conn: &Arc<Mutex<Option<Box<dyn Connection>>>>,
-        msg_buffer: &mut Vec<ProtoMessage>
-    ) -> Result<()> {
-        // 确保连接可用
-        if conn_ref.is_none() {
-            *conn_ref = Self::get_connection_ref(conn).await;
-        }
-
-        if let Some(ref conn) = conn_ref {
-            let mut failed = false;
-            
-            // 批量发送所有消息
-            for msg in msg_buffer.drain(..) {
-                debug!("Sending message: {:?}", msg);
-                if let Err(e) = conn.send(msg).await {
-                    error!("Failed to send message: {}", e);
-                    failed = true;
-                    break;
-                }
-            }
-
-            if failed {
-                *conn_ref = None; // 发送失败时清除连接引用
-                msg_buffer.clear(); // 清空缓冲区
-            }
-        }
-        
-        Ok(())
-    }
-
-    // 启动消息接收循环
     fn spawn_receiver(&self) {
         let conn = self.conn.clone();
         let handler = self.handler.clone();
@@ -239,46 +422,6 @@ where
         });
     }
 
-    /// 连接到服务器
-    pub async fn connect(&self) -> Result<()> {
-        *self.state.lock().await = ClientState::Connecting;
-        self.handler.handle_state_change(ClientState::Connecting).await;
-
-        // 认知
-        self.authenticate().await?;
-
-        // 创建连接
-        let new_conn = (self.connector)().await?;
-        *self.conn.lock().await = Some(new_conn);
-
-        // 启动消息接收循环
-        self.spawn_receiver();
-
-        // 更新状态
-        self.set_state(ClientState::Connected).await;
-        Ok(())
-    }
-
-    async fn authenticate(&self) -> Result<()> {
-        self.set_state(ClientState::Authenticating).await;
-        let req = LoginReq {
-            user_id: self.config.user_id.clone(),
-            platform: self.config.platform as i32,
-            client_id: self.config.client_id.clone(),
-            token: self.config.auth_token.clone(),
-            ..Default::default()
-        };
-        let auth_msg = ProtoMessage {
-            command: Command::Login as i32,
-            data: req.encode_to_vec(),
-            ..Default::default()
-        };
-        
-        self.send(auth_msg).await?;
-        self.set_state(ClientState::Authenticated).await;
-        Ok(())
-    }
-
     fn spawn_keepalive(&self) {
         let conn = self.conn.clone();
         let is_running = self.is_running.clone();
@@ -286,10 +429,12 @@ where
         let pending_requests = self.pending_requests.clone();
         let state = self.state.clone();
         let handler = self.handler.clone();
-        let config = self.config.clone();
+        let config = Arc::clone(&self.config);
         
         tokio::spawn(async move {
+            let config = config.lock().await;
             let mut interval = interval(config.ping_interval);
+            drop(config);
             while *is_running.lock().await {
                 interval.tick().await;
                 
@@ -333,136 +478,37 @@ where
         });
     }
 
-    async fn set_state(&self, new_state: ClientState) {
-        let mut state = self.state.lock().await;
-        *state = new_state.clone();
-        self.handler.handle_state_change(new_state).await;
-    }
+    // 消息处理
+    async fn flush_messages(
+        conn_ref: &mut Option<Arc<Box<dyn Connection>>>,
+        conn: &Arc<Mutex<Option<Box<dyn Connection>>>>,
+        msg_buffer: &mut Vec<ProtoMessage>
+    ) -> Result<()> {
+        // 确保连接可用
+        if conn_ref.is_none() {
+            *conn_ref = Self::get_connection_ref(conn).await;
+        }
 
-    /// 重连
-    pub async fn reconnect(&self) -> Result<()> {
-        let mut attempt = 0;
-        while attempt < self.config.max_reconnect_attempts {
-            self.set_state(ClientState::Reconnecting { attempt }).await;
+        if let Some(ref conn) = conn_ref {
+            let mut failed = false;
             
-            match self.connect().await {
-                Ok(()) => return Ok(()),
-                Err(e) => {
-                    error!("Reconnection attempt {} failed: {}", attempt, e);
-                    attempt += 1;
-                    sleep(self.config.reconnect_interval).await;
+            // 批量发送所有消息
+            for msg in msg_buffer.drain(..) {
+                debug!("Sending message: {:?}", msg);
+                if let Err(e) = conn.send(msg).await {
+                    error!("Failed to send message: {}", e);
+                    failed = true;
+                    break;
                 }
+            }
+
+            if failed {
+                *conn_ref = None; // 发送失败时清除连接引用
+                msg_buffer.clear(); // 清空缓冲区
             }
         }
         
-        Err(anyhow::anyhow!("Max reconnection attempts reached").into())
-    }
-
-    /// 发送消息
-    pub async fn send(&self, msg: ProtoMessage) -> Result<()> {
-        if !*self.is_running.lock().await {
-            return Err(anyhow::anyhow!("Client is not running").into());
-        }
-        self.message_sender.send(msg).await
-            .map_err(|e| anyhow::anyhow!("Failed to send message: {}", e))?;
         Ok(())
-    }
-
-    /// 发送消息并等待响应
-    pub async fn send_wait(&self, mut msg: ProtoMessage) -> Result<Response> {
-        // 生成唯一的请求ID
-        msg.client_id = uuid::Uuid::new_v4().to_string();
-        
-        // 创建响应通道
-        let (tx, rx) = oneshot::channel();
-        // 保存请求
-        {
-            let mut pending = self.pending_requests.lock().await;
-            pending.insert(msg.client_id.clone(), tx);
-        }
-        
-        // 发送消息
-        self.send(msg).await?;
-        // 等待响应
-        match rx.await {
-            Ok(response) => Ok(response),
-            Err(_) => Err(anyhow::anyhow!("Response channel closed").into())
-        }
-    }
-
-    /// 发送消息并等待响应，带超时
-    pub async fn send_wait_timeout(&self, msg: ProtoMessage, timeout: Duration) -> Result<Response> {
-        tokio::time::timeout(timeout, self.send_wait(msg))
-            .await
-            .map_err(|_| FlareErr::ConnectionError("Request timeout".to_string()))?
-    }
-
-    /// 关闭连接
-    pub async fn close(&self) -> Result<()> {
-        *self.is_running.lock().await = false;
-        if let Some(conn) = self.conn.lock().await.as_ref() {
-            conn.close().await?;
-        }
-        Ok(())
-    }
-
-    /// 获取当前状态
-    pub async fn get_state(&self) -> ClientState {
-        self.state.lock().await.clone()
-    }
-
-    /// 检查连接是否可用
-    pub async fn is_connected(&self) -> bool {
-        if !*self.is_running.lock().await {
-            return false;
-        }
-
-        match self.get_state().await {
-            ClientState::Connected | ClientState::Authenticated => {
-                let last_pong = *self.last_pong.lock().await;
-                if last_pong.elapsed() > self.config.pong_timeout {
-                    return false;
-                }
-
-                let ping = ProtoMessage {
-                    command: Command::Ping as i32,
-                    ..Default::default()
-                };
-
-                let conn_ref = Self::get_connection_ref(&self.conn).await;
-                if let Some(conn_ref) = conn_ref {
-                    match conn_ref.send(ping).await {
-                        Ok(_) => true,
-                        Err(_) => false,
-                    }
-                } else {
-                    false
-                }
-            }
-            _ => false,
-        }
-    }
-
-    /// 获取连接状态详情
-    pub async fn connection_status(&self) -> ConnectionStatus {
-        ConnectionStatus {
-            state: self.get_state().await,
-            is_running: *self.is_running.lock().await,
-            last_pong_elapsed: self.last_pong.lock().await.elapsed(),
-            has_active_connection: self.conn.lock().await.is_some(),
-        }
-    }
-
-    /// 等待连接就绪
-    pub async fn wait_ready(&self, timeout: Duration) -> Result<()> {
-        let start = Instant::now();
-        while start.elapsed() < timeout {
-            if self.is_connected().await {
-                return Ok(());
-            }
-            sleep(Duration::from_millis(100)).await;
-        }
-        Err(anyhow::anyhow!("Connection timeout").into())
     }
 }
 
