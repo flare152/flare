@@ -16,6 +16,7 @@ use std::net::SocketAddr;
 use std::pin::Pin;
 use protobuf_codegen::{Message, Platform, Response};
 use crate::connections::quic_conf::create_client_config;
+use std::time::Instant;
 
 pub enum Protocol {
     Auto,
@@ -158,6 +159,27 @@ where
     /// 检查是否已连接
     pub async fn is_connected(&self) -> bool {
         matches!(*self.state.lock().await, ClientState::Connected | ClientState::Authenticated)
+    }
+
+    /// 等待连接就绪，带超时
+    pub async fn wait_ready(&self, timeout: Duration) -> Result<()> {
+        let start = Instant::now();
+        while start.elapsed() < timeout {
+            match *self.state.lock().await {
+                ClientState::Connected | ClientState::Authenticated => {
+                    // 检查连接是否真正可用
+                    if self.is_connection_active(Duration::from_secs(1)).await {
+                        return Ok(());
+                    }
+                }
+                ClientState::Disconnected => {
+                    return Err(FlareErr::ConnectionError("Connection disconnected".to_string()));
+                }
+                _ => {}
+            }
+            tokio::time::sleep(Duration::from_millis(100)).await;
+        }
+        Err(FlareErr::ConnectionError("Connection timeout".to_string()))
     }
 
     /// 检查连接是否活跃

@@ -101,15 +101,13 @@ where
     pub async fn connect(&self) -> Result<()> {
         *self.state.lock().await = ClientState::Connecting;
         self.handler.handle_state_change(ClientState::Connecting).await;
-
-        // 认证
-        self.authenticate().await?;
         
         // 创建连接
         let connector = self.connector.lock().await;
         let new_conn = (connector)().await?;
         *self.conn.lock().await = Some(new_conn);
-
+        // 认证
+        self.authenticate().await?;
         // 启动消息接收循环
         self.spawn_receiver();
         
