@@ -3,6 +3,22 @@ name = "im_core"
 version = "0.1.0"
 edition = "2021"
 
+[features]
+default = ["client", "server"]
+client = [
+    "tokio-tungstenite",
+    "quinn",
+    "rustls",
+    "rustls-pemfile",
+]
+server = [
+    "tokio-tungstenite",
+    "quinn",
+    "rustls",
+    "rustls-pemfile",
+]
+full = ["client", "server"]
+
 [dependencies]
 tokio = { workspace = true }
 anyhow = { workspace = true }
@@ -10,22 +26,20 @@ async-trait = { workspace = true }
 thiserror = { workspace = true }
 prost = { workspace = true }
 futures = { workspace = true }
-tokio-tungstenite = { workspace = true }
 uuid = { workspace = true }
 protobuf-codegen = { path = "../protobuf-codegen" }
 log = { workspace = true }
 chrono = { workspace = true }
-url = {workspace = true}
+url = { workspace = true }
 
 # quic
 #quic
-quinn = {workspace = true}
-rustls = { workspace = true}
-rustls-pemfile = {workspace = true}
+tokio-tungstenite = { workspace = true, optional = true }
+quinn = { workspace = true, optional = true }
+rustls = { workspace = true, optional = true }
+rustls-pemfile = { workspace = true, optional = true }
 
 [dev-dependencies]
 tokio = { workspace = true, features = ["rt", "macros", "time", "io-std", "io-util"] }
 env_logger = { workspace = true }
-rcgen = { workspace = true }
-rustls = { workspace = true }
 anyhow = { workspace = true }
