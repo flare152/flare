@@ -10,6 +10,7 @@ use std::collections::HashMap;
 use std::sync::Arc;
 use tokio::sync::Mutex;
 use tokio::time::{interval, Duration};
+use crate::common;
 use crate::server::auth_handler::AuthHandler;
 use crate::server::server_handler::ServerHandler;
 use crate::server::sys_handler::SystemHandler;
@@ -123,7 +124,6 @@ where
         let conn_id = conn.id().to_string();
         let remote_addr = conn.remote_addr().to_string();
         info!("New connection from {}: {}", remote_addr, conn_id);
-
         // 等待认证消息
         match self.wait_for_auth(&conn).await {
             Ok(login_resp) => {
@@ -258,37 +258,75 @@ where
         }
     }
 
-    /// 等待认证
+    /// 等待认证消息
     async fn wait_for_auth(&self, conn: &Box<dyn Connection>) -> Result<LoginResp> {
-        let msg = conn.receive().await?;
-        
-        match Command::try_from(msg.command) {
-            Ok(Command::Login) => {
-                let ctx = self.build_context(
-                    AppContextBuilder::new()
-                        .remote_addr(conn.remote_addr().to_string())
-                        .command(Some(Command::Login))
-                        .data(msg.data.clone())
-                        .client_id(msg.client_id.clone()),
-                    conn.id().to_string(),
-                    msg.client_id.clone(),
-                ).await.ok_or_else(|| FlareErr::invalid_params("Failed to build auth context"))?;
+        let timeout = tokio::time::sleep(Duration::from_secs(30));
+        tokio::pin!(timeout);
 
-                // 处理登录请求
-                match self.handler.handle_auth(&ctx).await {
-                    Ok(response) => {
-                        if response.code == ResCode::Success as i32 {
-                            // 解码登录响应
-                            LoginResp::decode(response.data.as_slice())
-                                .map_err(|e| FlareErr::DecodeError(e))
-                        } else {
-                            Err(FlareErr::AuthError(response.message))
+        loop {
+            tokio::select! {
+                msg = conn.receive() => {
+                    match msg {
+                        Ok(msg) => {
+                            match Command::try_from(msg.command) {
+                                Ok(Command::Ping) => {
+                                    // 处理心跳消息
+                                    debug!("Received ping during auth, sending pong");
+                                    if let Err(e) = conn.send(ProtoMessage {
+                                        command: Command::Pong as i32,
+                                        ..Default::default()
+                                    }).await {
+                                        error!("Failed to send pong: {}", e);
+                                    }
+                                    continue;
+                                }
+                                Ok(Command::Pong) => {
+                                    // 处理心跳响应
+                                    debug!("Received pong during auth, ignoring");
+                                    continue;
+                                }
+                                Ok(Command::Login) => {
+                                    // 处理登录请求
+                                    let ctx = AppContextBuilder::new()
+                                        .remote_addr(conn.remote_addr().to_string())
+                                        .command(Some(Command::Login))
+                                        .data(msg.data)
+                                        .build()?;
+
+                                    match self.handler.handle_auth(&ctx).await {
+                                        Ok(response) => {
+                                            // 发送登录响应
+                                            conn.send(ProtoMessage {
+                                                command: Command::ServerResponse as i32,
+                                                data: response.data.clone(),
+                                                client_id: msg.client_id,
+                                                ..Default::default()
+                                            }).await?;
+
+                                            // 解析登录响应
+                                            if response.code == ResCode::Success as i32 {
+                                                if let Ok(login_resp) = LoginResp::decode(&response.data[..]) {
+                                                    return Ok(login_resp);
+                                                }
+                                            }
+                                            return Err(FlareErr::AuthError(response.message));
+                                        }
+                                        Err(e) => return Err(e),
+                                    }
+                                }
+                                _ => {
+                                    warn!("Unexpected command during auth: {:?}", msg.command);
+                                    continue;
+                                }
+                            }
                         }
+                        Err(e) => return Err(e),
                     }
-                    Err(e) => Err(e),
+                }
+                _ = &mut timeout => {
+                    return Err(FlareErr::AuthError("Authentication timeout".to_string()));
                 }
             }
-            _ => Err(FlareErr::InvalidCommand("Expected LOGIN command".into())),
         }
     }
 
@@ -311,6 +349,19 @@ where
 
                 match Command::try_from(msg.command) {
                     Ok(comm) => {
+                        if comm == Command::Ping{
+                            // 处理心跳消息
+                            debug!("Received ping during auth, sending pong");
+                            if let Err(e) = server.send_pong(info.conn_id.clone()).await{
+                                debug!("Failed to send pong: {}", e)
+                            }
+                            continue;
+                        }
+                        if comm ==Command::Pong {
+                            // 处理心跳响应
+                            debug!("Received pong during auth, ignoring");
+                            continue;
+                        }
                         let ctx = match server.build_context(
                             AppContextBuilder::new()
                                 .user_id(info.user_id.clone())
@@ -490,6 +541,20 @@ where
                 command: Command::ServerResponse as i32,
                 data: response.encode_to_vec(),
                 client_id: client_msg_id,
+                ..Default::default()
+            }).await
+        } else {
+            debug!("Connection not found: {}", conn_id);
+            Err(FlareErr::ConnectionNotFound)
+        }
+    }
+    //发送pong
+    async fn send_pong(&self, conn_id: String)->Result<()> {
+        let conn = self.connections.lock().await;
+        if let Some(info) = conn.get(conn_id.as_str()) {
+            info.send(ProtoMessage {
+                command: Command::Pong as i32,
+                data: "pong".into(),
                 ..Default::default()
             }).await
         } else {

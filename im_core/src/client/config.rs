@@ -28,7 +28,7 @@ impl Default for ClientConfig {
             reconnect_interval: RECONNECT_INTERVAL,
             max_reconnect_attempts: MAX_RECONNECT_ATTEMPTS,
             auth_token: String::new(),
-            platform: Platform::Unknown,
+            platform: Platform::Web,
             client_id: uuid::Uuid::new_v4().to_string(),
             user_id: String::new(),
             language: None,

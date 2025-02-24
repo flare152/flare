@@ -106,10 +106,15 @@ where
         let connector = self.connector.lock().await;
         let new_conn = (connector)().await?;
         *self.conn.lock().await = Some(new_conn);
-        // 认证
-        self.authenticate().await?;
+
         // 启动消息接收循环
         self.spawn_receiver();
+        
+        // 进行认证
+        self.authenticate().await?;
+
+        // 认证成功后启动心跳检测
+        self.spawn_keepalive();
         
         // 更新状态
         self.set_state(ClientState::Connected).await;
@@ -123,15 +128,29 @@ where
             self.set_state(ClientState::Reconnecting { attempt }).await;
             
             match self.connect().await {
-                Ok(()) => return Ok(()),
+                Ok(()) => {
+                    // 重连成功后重新进行认证
+                    match self.authenticate().await {
+                        Ok(()) => {
+                            // 认证成功后重新启动心跳检测
+                            self.spawn_keepalive();
+                            return Ok(());
+                        }
+                        Err(e) => {
+                            error!("Authentication failed after reconnection: {}", e);
+                            attempt += 1;
+                        }
+                    }
+                }
                 Err(e) => {
                     error!("Reconnection attempt {} failed: {}", attempt, e);
                     attempt += 1;
-                    sleep(self.config.lock().await.reconnect_interval).await;
                 }
             }
+            sleep(self.config.lock().await.reconnect_interval).await;
         }
         
+        self.set_state(ClientState::Disconnected).await;
         Err(anyhow::anyhow!("Max reconnection attempts reached").into())
     }
 
@@ -287,11 +306,12 @@ where
     // 认证相关
     async fn authenticate(&self) -> Result<()> {
         self.set_state(ClientState::Authenticating).await;
+        let conf = self.config.lock().await;
         let req = LoginReq {
-            user_id: self.config.lock().await.user_id.clone(),
-            platform: self.config.lock().await.platform as i32,
-            client_id: self.config.lock().await.client_id.clone(),
-            token: self.config.lock().await.auth_token.clone(),
+            user_id: conf.user_id.clone(),
+            platform: conf.platform as i32,
+            client_id: conf.client_id.clone(),
+            token: conf.auth_token.clone(),
             ..Default::default()
         };
         let auth_msg = ProtoMessage {
@@ -387,7 +407,16 @@ where
                                 *last_pong.lock().await = Instant::now();
                                 continue;
                             }
-
+                            // 处理服务端Ping
+                            if msg.command == Command::Ping as i32 {
+                                if let Err(e) = conn_ref.send(ProtoMessage {
+                                    command: Command::Pong as i32,
+                                    ..Default::default()
+                                }).await {
+                                    error!("Failed to send Pong message: {}", e);
+                                }
+                                continue;
+                            }
                             // 处理响应消息
                             if msg.command == Command::ServerResponse as i32 {
                                 if let Ok(response) = Response::decode(&msg.data[..]) {
@@ -424,7 +453,6 @@ where
         let conn = self.conn.clone();
         let is_running = self.is_running.clone();
         let last_pong = self.last_pong.clone();
-        let pending_requests = self.pending_requests.clone();
         let state = self.state.clone();
         let handler = self.handler.clone();
         let config = Arc::clone(&self.config);
@@ -432,44 +460,31 @@ where
         tokio::spawn(async move {
             let config = config.lock().await;
             let mut interval = interval(config.ping_interval);
+            let reconnect_interval = config.reconnect_interval;
             drop(config);
+
             while *is_running.lock().await {
                 interval.tick().await;
-                
-                let conn_ref = Self::get_connection_ref(&conn).await;
-                
-                if let Some(conn_ref) = conn_ref {
-                    match conn_ref.receive().await {
-                        Ok(msg) => {
-                            // 更新最后一次 PONG 时间
-                            if msg.command == Command::Pong as i32 {
-                                *last_pong.lock().await = Instant::now();
-                                continue;
-                            }
 
-                            // 处理服务端响应
-                            if msg.command == Command::ServerResponse as i32 {
-                                let mut pending = pending_requests.lock().await;
-                                if let Ok(response) = Response::decode(&msg.data[..]) {
-                                    if let Some(tx) = pending.remove(&msg.client_id) {
-                                        let _ = tx.send(response.clone());
-                                    } else {
-                                        // 如果没有找到对应的请求通道，则交给消息处理器处理
-                                        handler.on_response(&response).await;
-                                    }
-                                }
-                                continue;
-                            }
-
-                            // 处理其他消息
-                            let command = Command::try_from(msg.command).unwrap_or(Command::CmdUnknown);
-                            let _ = handler.handle_command(command, msg.data).await;
-                        }
-                        Err(e) => {
-                            error!("Error receiving message: {}", e);
-                            *state.lock().await = ClientState::Disconnected;
-                            break;
-                        }
+                // 检查连接状态
+                if !matches!(*state.lock().await, ClientState::Connected | ClientState::Authenticated) {
+                    // 如果连接断开，等待一段时间后尝试重连
+                    sleep(reconnect_interval).await;
+                    handler.handle_state_change(ClientState::Reconnecting { attempt: 0 }).await;
+                    continue;
+                }
+                
+                // 发送心跳包
+                if let Some(conn_ref) = Self::get_connection_ref(&conn).await {
+                    let ping_msg = ProtoMessage {
+                        command: Command::Ping as i32,
+                        ..Default::default()
+                    };
+                    
+                    if let Err(e) = conn_ref.send(ping_msg).await {
+                        error!("Failed to send ping: {}", e);
+                        *state.lock().await = ClientState::Disconnected;
+                        handler.handle_state_change(ClientState::Disconnected).await;
                     }
                 }
             }

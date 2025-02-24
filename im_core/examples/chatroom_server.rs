@@ -12,6 +12,7 @@ use log::{error, info};
 use protobuf_codegen::{Command, Message as ProtoMessage, ResCode, Response};
 use quinn::{Endpoint, ServerConfig};
 use std::sync::Arc;
+use prost::Message;
 
 // 聊天室消息处理器
 struct ChatHandler;
@@ -37,7 +38,7 @@ impl ServerHandler for ChatHandler {
 
             response.code = ResCode::Success as i32;
             response.message = "Message sent".to_string();
-            response.data = modified_content.into_bytes();
+            response.data = broadcast_msg.encode_to_vec();
         }
         Ok(response)
     }
