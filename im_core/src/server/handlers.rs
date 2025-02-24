@@ -4,10 +4,10 @@ use async_trait::async_trait;
 use log::debug;
 use protobuf_codegen::{Command, ResCode, Response};
 
-use crate::server::auth_handler::{AuthCommandHandler, AuthHandler, DefAuthHandler};
+use crate::server::auth_handler::{AuthCommandHandler, AuthHandler};
 use crate::server::server::ConnectionInfo;
-use crate::server::server_handler::{DefServerHandler, ServerCommandHandler, ServerHandler};
-use crate::server::sys_handler::{DefSystemHandler, SystemCommandHandler, SystemHandler};
+use crate::server::server_handler::{ ServerCommandHandler, ServerHandler};
+use crate::server::sys_handler::{SystemCommandHandler, SystemHandler};
 
 /// 命令处理器 trait
 #[async_trait]
@@ -142,6 +142,8 @@ where
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::server::auth_handler::DefAuthHandler;
+    use crate::server::server_handler::DefServerHandler;
 
     #[tokio::test]
     async fn test_message_handler() {

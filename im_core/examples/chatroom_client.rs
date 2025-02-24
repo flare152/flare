@@ -3,7 +3,7 @@ use im_core::client::config::ClientConfig;
 use im_core::client::handlers::ClientMessageHandler;
 use im_core::client::message_handler::DefMessageHandler;
 use im_core::client::sys_handler::DefClientSystemHandler;
-use im_core::telecom::FlareClient;
+use im_core::telecom::{FlareClient, Protocol};
 use log::{error, info};
 use protobuf_codegen::{Command, Message};
 use std::io::{self, Write};
@@ -13,6 +13,19 @@ use std::time::Duration;
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
     env_logger::init();
+
+    // 获取命令行参数
+    let args: Vec<String> = std::env::args().collect();
+    let protocol = match args.get(1).map(|s| s.as_str()) {
+        Some("ws") => Protocol::WebSocket,
+        Some("quic") => Protocol::Quic,
+        Some("auto") => Protocol::Auto,
+        _ => {
+            println!("Usage: {} [ws|quic|auto]", args[0]);
+            println!("Defaulting to WebSocket");
+            Protocol::WebSocket
+        }
+    };
 
     println!("Enter your username:");
     let mut username = String::new();
@@ -24,19 +37,41 @@ async fn main() -> anyhow::Result<()> {
     let mut config = ClientConfig::default();
     config.auth_token = username.clone();
 
-    // 创建客户端，使用默认的系统处理器和消息处理器
-    let mut client = FlareClient::<DefClientSystemHandler, DefMessageHandler>::builder()
-        .ws_url("ws://127.0.0.1:8080")
+    // 创建客户端构建器
+    let mut builder = FlareClient::<DefClientSystemHandler, DefMessageHandler>::builder()
         .client_config(config)
-        .handler(ClientMessageHandler::<DefClientSystemHandler, DefMessageHandler>::default())
-        .use_websocket()
-        .build()?;
+        .handler(ClientMessageHandler::<DefClientSystemHandler, DefMessageHandler>::default());
 
-    // 连接到服务器
+    // 根据协议设置连接参数
+    match protocol {
+        Protocol::WebSocket => {
+            builder = builder.ws_url("ws://127.0.0.1:8080").use_websocket();
+        }
+        Protocol::Quic => {
+            builder = builder
+                .quic_addr("127.0.0.1:8081")
+                .quic_server_name("localhost")
+                .quic_cert_path("certs/cert.pem")
+                .quic_is_test(true)
+                .use_quic();
+        }
+        Protocol::Auto => {
+            builder = builder
+                .ws_url("ws://127.0.0.1:8080")
+                .quic_addr("127.0.0.1:8081")
+                .quic_server_name("localhost")
+                .quic_cert_path("certs/cert.pem")
+                .quic_is_test(true)
+                .protocol(Protocol::Auto);
+        }
+    }
+
+    // 构建并连接客户端
+    let mut client = builder.build()?;
     client.connect().await?;
     
     // 等待连接就绪
-   // client.wait_ready(Duration::from_secs(5)).await?;
+    client.wait_ready(Duration::from_secs(5)).await?;
     
     // 打印连接状态
     let status = client.get_state().await;

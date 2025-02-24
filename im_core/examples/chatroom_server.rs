@@ -73,8 +73,8 @@ async fn main() -> anyhow::Result<()> {
         .ws_addr("127.0.0.1:8080")
         .quic_addr("127.0.0.1:8081")
         .quic_server_name("hugo.im.quic.cn")
-        .quic_cert_path("/Users/hg/workspace/rust/flare/im_core/certs/cert.pem")
-        .quic_key_path("/Users/hg/workspace/rust/flare/im_core/certs/key.pem")
+        .quic_cert_path("certs/cert.pem")
+        .quic_key_path("certs/key.pem")
         .handler(handler)
         .build()?;
 

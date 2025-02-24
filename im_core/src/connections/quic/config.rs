@@ -9,7 +9,6 @@ use std::path::Path;
 use log::debug;
 use rustls_pemfile;
 use rustls::client::danger::{HandshakeSignatureValid, ServerCertVerified, ServerCertVerifier};
-use std::time::SystemTime;
 use rustls::SignatureScheme;
 use rustls::pki_types::UnixTime;
 use rustls::RootCertStore;

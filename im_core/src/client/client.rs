@@ -452,7 +452,6 @@ where
     fn spawn_keepalive(&self) {
         let conn = self.conn.clone();
         let is_running = self.is_running.clone();
-        let last_pong = self.last_pong.clone();
         let state = self.state.clone();
         let handler = self.handler.clone();
         let config = Arc::clone(&self.config);
