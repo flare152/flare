@@ -144,7 +144,7 @@ mod tests {
     use super::*;
     use crate::server::auth_handler::DefAuthHandler;
     use crate::server::server_handler::DefServerHandler;
-
+    use crate::server::sys_handler::DefSystemHandler;
     #[tokio::test]
     async fn test_message_handler() {
         let handler = ServerMessageHandler::<DefServerHandler, DefAuthHandler, DefSystemHandler>::default();
