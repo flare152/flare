@@ -1,0 +1,11 @@
+[package]
+name = "chatroom_server"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+im_core = { path = "../../", features = ["server"] }
+tokio = { workspace = true }
+env_logger = { workspace = true }
+anyhow = { workspace = true }
+log = { workspace = true } 

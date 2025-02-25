@@ -1,10 +1,8 @@
 use async_trait::async_trait;
-use futures::StreamExt;
-use im_core::client::client::{Client, ClientState};
+use im_core::client::client::Client;
 use im_core::client::config::ClientConfig;
 use im_core::client::message_handler::MessageHandler;
-use im_core::client::sys_handler::ClientSystemHandler;
-use im_core::common::ctx::{AppContext, Context};
+use im_core::common::ctx::AppContext;
 use im_core::common::error::{FlareErr, Result};
 use im_core::connections::{Connection, WsConnection};
 use im_core::server::auth_handler::{AuthHandler, DefAuthHandler};
@@ -60,7 +58,7 @@ struct ChatServerHandler;
 #[async_trait]
 impl ServerHandler for ChatServerHandler {
     async fn handle_send_message(&self, ctx:  &AppContext) -> Result<Response> {
-        let msg = Context::string_data(ctx)?;
+        let msg = ctx.string_data()?;
         let prefix = "你好, ".to_string();
         let content = format!("{}{}", prefix, msg);
         

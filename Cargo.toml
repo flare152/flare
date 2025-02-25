@@ -9,10 +9,15 @@ path = "src/lib.rs"
 
 [workspace]
 members = [
+    "grpc_core",
     "im_core",
     "protobuf-codegen"
 ]
 resolver = "2"
+
+[workspace.package]
+version = "0.1.0"
+edition = "2021"
 
 [workspace.dependencies]
 tokio = { version = "1.0", features = ["full"] }
@@ -34,8 +39,17 @@ quinn = "0.11.5"
 rustls  = "0.23.5"
 rustls-pemfile = "2"
 
-
 # 日志
 chrono="0.4"
 log = "0.4"
 env_logger = "0.11"
+
+# grpc
+volo = "0.10"
+volo-grpc = "0.10"
+pilota = "0.11"
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+reqwest = "0.12.12"
+async-broadcast = "0.7"
+dashmap = "6.1"
