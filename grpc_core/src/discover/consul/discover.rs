@@ -3,7 +3,7 @@ use async_trait::async_trait;
 use reqwest;
 use std::sync::Arc;
 use volo::discovery::{Change, Discover, Instance};
-use super::{ConsulConfig, ConsulServiceHealth};
+use super::{ConsulConfig, ConsulService, ConsulServiceHealth};
 use std::borrow::Cow;
 use volo::context::Endpoint;
 use dashmap::DashMap;
@@ -53,25 +53,25 @@ impl ConsulDiscover {
                 
                 let mut service_map: HashMap<String, Vec<Arc<Instance>>> = HashMap::new();
                 
-                if let Ok(response) = client.get(&format!("{}/v1/health/state/passing", config.url())).send().await {
-                    if let Ok(health_checks) = response.json::<Vec<ConsulServiceHealth>>().await {
-                        for check in health_checks {
+                if let Ok(response) = client.get(&format!("{}/v1/agent/services", config.url())).send().await {
+                    if let Ok(services_map) = response.json::<HashMap<String, ConsulService>>().await {
+                        for (_, service) in services_map {
                             let instances = service_map
-                                .entry(check.Service.Service.clone())
+                                .entry(service.service.clone())
                                 .or_insert_with(|| Vec::new());
 
-                            let addr = format!("{}:{}", check.Service.Address, check.Service.Port)
-                                .parse::<SocketAddr>()
-                                .unwrap();
+                            let addr = format!("{}:{}", service.address, service.port);
                                 
                             instances.push(Arc::new(Instance {
-                                address: addr.into(),
+                                address: addr.parse::<SocketAddr>().unwrap().into(),
                                 weight: 1,
-                                tags: check.Service.Tags.into_iter()
+                                tags: service.tags.into_iter()
                                     .map(|tag| (Cow::Owned(tag.clone()), Cow::Owned(tag)))
                                     .collect(),
                             }));
                         }
+                    } else {
+                        log::error!("Failed to parse services response");
                     }
                 }
 

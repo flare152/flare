@@ -2,8 +2,9 @@ use crate::discover::registry::{Registration, Registry};
 use async_trait::async_trait;
 use reqwest;
 use std::time::Duration;
-use super::{ConsulConfig, ConsulService};
+use super::{ConsulConfig, ConsulService, ConsulCheck, RegisterService};
 use tokio::time::interval;
+use serde::Serialize;
 
 pub struct ConsulRegistry {
     client: reqwest::Client,
@@ -58,6 +59,30 @@ impl ConsulRegistry {
             Err(_) => false,
         }
     }
+
+    async fn request<T: Serialize>(&self, method: reqwest::Method, path: &str, body: Option<&T>) -> Result<(), reqwest::Error> {
+        let url = format!("{}{}", self.config.url(), path);
+        let mut req = self.client.request(method, &url);
+        
+        if let Some(data) = body {
+            req = req.json(data);
+        }
+        
+        let res = req.send().await?;
+        if !res.status().is_success() {
+            let err = res.error_for_status().unwrap_err();
+            let status = err.status().unwrap_or_default();
+            
+            log::error!(
+                "Consul API 错误: 路径={}, 状态码={}", 
+                path, status
+            );
+            
+            return Err(err);
+        }
+        
+        Ok(())
+    }
 }
 
 #[async_trait]
@@ -66,29 +91,28 @@ impl Registry for ConsulRegistry {
 
     async fn register(&self, reg: Registration) -> Result<(), Self::Error> {
         // 先检查 Consul 是否可用
-        let resp = self.client.get(&format!("{}/v1/status/leader", self.config.url()))
-            .send()
-            .await?;
-            
-        if !resp.status().is_success() {
-            return Err(resp.error_for_status().unwrap_err());
-        }
+        self.request::<()>(reqwest::Method::GET, "/v1/status/leader", None).await?;
 
-        let service = ConsulService {
-            ID: reg.id.clone(),
-            Service: reg.name,
-            Tags: reg.tags,
-            Address: reg.address,
-            Port: reg.port,
-            Meta: reg.meta,
+        let service = RegisterService {
+            id: reg.id.clone(),
+            name: reg.name,
+            tags: reg.tags,
+            address: reg.address,
+            port: reg.port,
+            meta: reg.meta,
+            check: ConsulCheck {
+                ttl: format!("{}s", self.ttl.as_secs()),
+                status: "passing".to_string(),
+                deregister_critical_service_after: "24h".to_string(),
+            },
         };
 
-        let url = format!("{}/v1/agent/service/register", self.config.url());
-        self.client.put(&url)
-            .json(&service)
-            .send()
-            .await?;
-            
+        self.request::<RegisterService>(
+            reqwest::Method::PUT,
+            "/v1/agent/service/register",
+            Some(&service)
+        ).await?;
+        
         // 启动心跳
         self.start_heartbeat(reg.id).await;
         
@@ -96,14 +120,18 @@ impl Registry for ConsulRegistry {
     }
 
     async fn deregister(&self, service_id: &str) -> Result<(), Self::Error> {
-        let url = format!("{}/v1/agent/service/deregister/{}", self.config.url(), service_id);
-        self.client.put(&url).send().await?;
-        Ok(())
+        self.request::<()>(
+            reqwest::Method::PUT,
+            &format!("/v1/agent/service/deregister/{}", service_id),
+            None
+        ).await
     }
 
     async fn heartbeat(&self, service_id: &str) -> Result<(), Self::Error> {
-        let url = format!("{}/v1/agent/check/pass/service:{}", self.config.url(), service_id);
-        self.client.put(&url).send().await?;
-        Ok(())
+        self.request::<()>(
+            reqwest::Method::PUT,
+            &format!("/v1/agent/check/pass/service:{}", service_id),
+            None
+        ).await
     }
 } 

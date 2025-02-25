@@ -64,8 +64,8 @@ mod tests {
 
         let endpoint = Endpoint::new("test-service".to_string().parse().unwrap());
         
-        // 等待服务发现更新
-        tokio::time::sleep(Duration::from_secs(1)).await;
+        // 增加等待时间,让 Consul 有足够时间更新服务列表
+        tokio::time::sleep(Duration::from_secs(30)).await;
         
         let instances = discover.discover(&endpoint).await.unwrap();
         assert!(!instances.is_empty());

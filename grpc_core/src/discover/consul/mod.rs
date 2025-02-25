@@ -45,28 +45,68 @@ impl ConsulConfig {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 struct ConsulService {
-    ID: String,
-    Service: String,
-    Tags: Vec<String>,
-    Address: String,
-    Port: u16,
-    Meta: HashMap<String, String>,
+    #[serde(rename = "ID")]
+    id: String,
+    #[serde(rename = "Service")]
+    service: String,
+    #[serde(rename = "Tags")]
+    tags: Vec<String>,
+    #[serde(rename = "Address")]
+    address: String,
+    #[serde(rename = "Port")]
+    port: u16,
+    #[serde(rename = "Meta")]
+    meta: HashMap<String, String>,
+    #[serde(rename = "EnableTagOverride", skip_serializing)]
+    enable_tag_override: Option<bool>,
+    #[serde(rename = "CreateIndex", skip_serializing)]
+    create_index: Option<u64>,
+    #[serde(rename = "ModifyIndex", skip_serializing)]
+    modify_index: Option<u64>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 struct ConsulServiceHealth {
-    Node: ConsulNode,
-    Service: ConsulService,
-    Checks: Vec<ConsulCheck>,
+    #[serde(rename = "Node")]
+    node: ConsulNode,
+    #[serde(rename = "Service")]
+    service: ConsulService,
+    #[serde(rename = "Checks")]
+    checks: Vec<ConsulCheck>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 struct ConsulNode {
-    Node: String,
-    Address: String,
+    #[serde(rename = "Node")]
+    node: String,
+    #[serde(rename = "Address")]
+    address: String,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 struct ConsulCheck {
-    Status: String,
+    #[serde(rename = "TTL")]
+    ttl: String,
+    #[serde(rename = "Status")]
+    status: String,
+    #[serde(rename = "DeregisterCriticalServiceAfter")]
+    deregister_critical_service_after: String,
+}
+
+#[derive(Debug, Clone, Serialize)]
+struct RegisterService {
+    #[serde(rename = "ID")]
+    id: String,
+    #[serde(rename = "Name")]
+    name: String,
+    #[serde(rename = "Tags")]
+    tags: Vec<String>,
+    #[serde(rename = "Address")]
+    address: String,
+    #[serde(rename = "Port")]
+    port: u16,
+    #[serde(rename = "Meta")]
+    meta: HashMap<String, String>,
+    #[serde(rename = "Check")]
+    check: ConsulCheck,
 } 
