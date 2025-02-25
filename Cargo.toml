@@ -18,17 +18,12 @@ resolver = "2"
 tokio = { version = "1.0", features = ["full"] }
 anyhow = "1.0"
 async-trait = "0.1"
-serde = { version = "1.0", features = ["derive"] }
-serde_json = "1.0"
-pilota = "0.11"
 
 tokio-tungstenite = { version = "0.26", features = ["connect"] }
 futures = "0.3"
-rcgen = "0.13"
 
 bytes = "1.10.0"
 url = "2.5"
-pin-project-lite = "0.2"
 uuid = { version = "1.0", features = ["v4"] }
 thiserror = "2.0.11"
 prost = "0.13.5"
@@ -44,4 +39,3 @@ rustls-pemfile = "2"
 chrono="0.4"
 log = "0.4"
 env_logger = "0.11"
-flate2 = { version = "1.0"}
