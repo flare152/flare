@@ -1,7 +1,6 @@
 use async_trait::async_trait;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
-use std::time::Duration;
 
 /// 服务注册信息
 #[derive(Default, Clone, Serialize, Deserialize)]

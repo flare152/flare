@@ -8,8 +8,7 @@ mod tests {
     use volo::discovery::Discover;
     use crate::discover::consul::{ConsulConfig, ConsulRegistry};
     use crate::discover::ConsulDiscover;
-    use crate::discover::registry::Registry;
-    use crate::Registration;
+    use crate::discover::registry::{Registry, Registration};
 
     async fn setup_consul() -> ConsulConfig {
         let config = ConsulConfig {
