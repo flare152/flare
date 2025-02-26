@@ -1,5 +1,5 @@
 [package]
-name = "grpc_core"
+name = "rpc_core"
 version.workspace = true
 edition.workspace = true
 

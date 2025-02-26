@@ -1,4 +1,5 @@
 mod discover;
+mod server;
 
 pub use discover::{Registration, Registry};
 

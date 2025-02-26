@@ -9,7 +9,7 @@ path = "src/lib.rs"
 
 [workspace]
 members = [
-    "grpc_core",
+    "rpc_core",
     "im_core",
     "protobuf-codegen"
 ]
