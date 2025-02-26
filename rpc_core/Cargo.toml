@@ -18,3 +18,4 @@ dashmap = { workspace = true }
 log = { workspace = true }
 reqwest = { workspace = true, features = ["json"] }
 etcd-client = {workspace = true}
+uuid = { workspace = true}

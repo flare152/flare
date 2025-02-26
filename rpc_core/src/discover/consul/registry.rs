@@ -6,6 +6,7 @@ use super::{ConsulConfig, ConsulService, ConsulCheck, RegisterService};
 use tokio::time::interval;
 use serde::Serialize;
 
+#[derive(Clone)]
 pub struct ConsulRegistry {
     client: reqwest::Client,
     config: ConsulConfig,

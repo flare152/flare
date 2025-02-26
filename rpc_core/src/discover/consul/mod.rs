@@ -93,7 +93,7 @@ struct ConsulCheck {
     deregister_critical_service_after: String,
 }
 
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 struct RegisterService {
     #[serde(rename = "ID")]
     id: String,

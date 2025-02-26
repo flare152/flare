@@ -45,11 +45,11 @@ impl EtcdDiscover {
 
         tokio::spawn(async move {
             let mut interval = interval(Duration::from_secs(2));
-            
+
             loop {
                 interval.tick().await;
                 let mut service_map: HashMap<String, Vec<Arc<Instance>>> = HashMap::new();
-                
+
                 match client.get(config.prefix.clone(), Some(etcd_client::GetOptions::new().with_prefix())).await {
                     Ok(resp) => {
                         for kv in resp.kvs() {
@@ -71,13 +71,13 @@ impl EtcdDiscover {
 
                         // 更新缓存并发送变更通知
                         let mut old_services: Vec<String> = services.iter().map(|e| e.key().clone()).collect();
-                        
+
                         for (service_name, instances) in service_map {
                             old_services.retain(|s| s != &service_name);
                             let old_instances = services.get(&service_name)
                                 .map(|v| v.to_vec())
                                 .unwrap_or_default();
-                                
+
                             services.insert(service_name.clone(), instances.clone());
 
                             let changes = Change {
@@ -133,7 +133,6 @@ impl EtcdDiscover {
         });
     }
 }
-
 #[async_trait]
 impl Discover for EtcdDiscover {
     type Key = String;

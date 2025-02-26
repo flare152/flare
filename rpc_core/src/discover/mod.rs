@@ -1,8 +1,10 @@
 mod consul;
 mod registry;
 mod etcd;
+mod discover;
 
-pub use registry::{Registry, Registration};
+pub use discover::{RpcDiscovery};
+pub use registry::{Registry, Registration,LogRegistry};
 pub use consul::{ConsulDiscover, ConsulConfig,ConsulRegistry};
 pub use etcd::{EtcdDiscover, EtcdConfig, EtcdRegistry};
 

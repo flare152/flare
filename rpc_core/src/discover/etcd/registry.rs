@@ -5,12 +5,14 @@ use etcd_client::Client;
 use serde_json;
 use std::time::Duration;
 use tokio::time::interval;
+use std::sync::Arc;
 
+#[derive(Clone)]
 pub struct EtcdRegistry {
     client: Client,
     config: EtcdConfig,
     ttl: Duration,
-    lease_id: tokio::sync::Mutex<Option<i64>>,
+    lease_id: Arc<tokio::sync::Mutex<Option<i64>>>,
 }
 
 impl EtcdRegistry {
@@ -21,7 +23,7 @@ impl EtcdRegistry {
             client,
             config,
             ttl,
-            lease_id: tokio::sync::Mutex::new(None),
+            lease_id: Arc::new(tokio::sync::Mutex::new(None)),
         })
     }
 

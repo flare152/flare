@@ -1,5 +1,5 @@
 mod discover;
-mod server;
+mod app;
 
 pub use discover::{Registration, Registry};
 
