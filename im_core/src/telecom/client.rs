@@ -9,7 +9,7 @@ use crate::client::config::ClientConfig;
 use crate::client::handlers::ClientMessageHandler;
 use crate::client::sys_handler::ClientSystemHandler;
 use crate::client::message_handler::MessageHandler;
-use crate::common::error::{Result, FlareErr};
+use flare::error::{Result, FlareErr};
 use crate::connections::{Connection, WsConnection, QuicConnection};
 use log::{info, debug, error};
 use std::net::SocketAddr;

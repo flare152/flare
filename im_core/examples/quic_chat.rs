@@ -1,6 +1,6 @@
 use im_core::client::client::Client;
 use im_core::client::config::ClientConfig;
-use im_core::common::error::{FlareErr, Result};
+use flare::error::{FlareErr, Result};
 use im_core::connections::quic_conf::{
     create_client_config, create_server_config, init_crypto
 };

@@ -1,4 +1,4 @@
-use crate::common::error::Result;
+use flare::error::Result;
 use async_trait::async_trait;
 use protobuf_codegen::{Message as ProtoMessage, Platform};
 use std::pin::Pin;

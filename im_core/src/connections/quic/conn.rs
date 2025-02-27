@@ -1,5 +1,5 @@
 use crate::connections::connection::{Connection, ConnectionState};
-use crate::common::error::{FlareErr, Result};
+use flare::error::{FlareErr, Result};
 use log::debug;
 use prost::Message as ProstMessage;
 use protobuf_codegen::{Command, Message, Platform};

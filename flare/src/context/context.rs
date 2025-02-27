@@ -1,8 +1,10 @@
-use crate::common::ctx::extensions::Extensions;
-use crate::common::error::{FlareErr, Result};
+
+use crate::error::{FlareErr, Result};
 use log::debug;
 use prost::Message;
 use protobuf_codegen::{Command, Platform};
+use std::collections::HashMap;
+use std::str::FromStr;
 use std::sync::{Arc, Mutex};
 
 #[derive(Default)]
@@ -10,7 +12,7 @@ pub struct AppContext {
     remote_addr: String,
     command: Option<Command>,
     data: Vec<u8>,
-    extensions: Arc<Mutex<Extensions>>,
+    values: Arc<Mutex<HashMap<String, String>>>,
     user_id: Option<String>,
     platform: Option<Platform>,
     client_id: Option<String>,     // 客户端标识
@@ -95,27 +97,28 @@ impl AppContext {
         Ok(f64::from_le_bytes(bytes))
     }
 
-    // 扩展功能
-    pub fn contains<T: Send + Sync + 'static>(&self) -> bool {
-        self.extensions.lock().unwrap().contains::<T>()
+    // 新增值操作方法
+    pub fn set_val<T: ToString>(&self, key: &str, value: T) {
+        self.values.lock().unwrap().insert(
+            key.to_string(),
+            value.to_string()
+        );
     }
 
-    pub fn get<T: Send + Sync + 'static>(&self) -> Option<Arc<T>> {
-        self.extensions.lock().unwrap().get::<Arc<T>>().map(|v| v.clone())
+    pub fn get_val<T: FromStr>(&self, key: &str) -> Option<T> {
+        self.values.lock().unwrap()
+            .get(key)
+            .and_then(|v| T::from_str(v).ok())
     }
 
-    pub fn set<T: Send + Sync + 'static>(&mut self, val: T) {
-        self.extensions.lock().unwrap().insert(val);
-    }
-
-    pub fn remove<T: Send + Sync + 'static>(&mut self) -> Option<T> {
-        self.extensions.lock().unwrap().remove()
+    pub fn del_val(&self, key: &str) -> Option<String> {
+        self.values.lock().unwrap().remove(key)
     }
 
     // 生命周期管理
     pub fn destroy(&mut self) {
         debug!("Destroying AppContext for connection: {}", self.remote_addr);
-        self.extensions.lock().unwrap().clear();
+        self.values.lock().unwrap().clear();
         self.data.clear();
         self.command = None;
         self.user_id = None;
@@ -133,7 +136,7 @@ impl Clone for AppContext {
             remote_addr: self.remote_addr.clone(),
             command: self.command.clone(),
             data: self.data.clone(),
-            extensions: self.extensions.clone(),
+            values: self.values.clone(),
             user_id: self.user_id.clone(),
             platform: self.platform.clone(),
             client_id: self.client_id.clone(),
@@ -150,7 +153,7 @@ pub struct AppContextBuilder {
     command: Option<Command>,
     language: Option<String>,
     data: Option<Vec<u8>>,
-    extensions: Option<Arc<Mutex<Extensions>>>,
+    values: Option<Arc<Mutex<HashMap<String, String>>>>,
     user_id: Option<String>,
     platform: Option<Platform>,
     client_id: Option<String>,
@@ -178,8 +181,8 @@ impl AppContextBuilder {
         self
     }
 
-    pub fn extensions(mut self, extensions: Arc<Mutex<Extensions>>) -> Self {
-        self.extensions = Some(extensions);
+    pub fn values(mut self, values: Arc<Mutex<HashMap<String, String>>>) -> Self {
+        self.values = Some(values);
         self
     }
 
@@ -219,7 +222,7 @@ impl AppContextBuilder {
             remote_addr: self.remote_addr.ok_or_else(|| anyhow::anyhow!("remote_addr is required"))?,
             command: self.command,
             data: self.data.unwrap_or_default(),
-            extensions: self.extensions.unwrap_or_else(|| Arc::new(Mutex::new(Extensions::new()))),
+            values: self.values.unwrap_or_else(|| Arc::new(Mutex::new(HashMap::new()))),
             user_id: self.user_id,
             platform: self.platform,
             client_id: self.client_id,

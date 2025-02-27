@@ -1,0 +1,16 @@
+[package]
+name = "flare"
+authors.workspace = true
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+
+[dependencies]
+protobuf-codegen = { version = "0.1.0" ,path = "../protobuf-codegen" }
+log = { workspace = true }
+prost = { workspace = true }
+thiserror = { workspace = true }
+anyhow = { workspace = true }
+
+# websocket
+tokio-tungstenite = { workspace = true }

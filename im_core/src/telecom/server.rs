@@ -6,7 +6,7 @@ use tokio_tungstenite::accept_async;
 use crate::server::auth_handler::AuthHandler;
 use crate::server::handlers::ServerMessageHandler;
 use crate::server::server::Server;
-use crate::common::error::{Result, FlareErr};
+use flare::error::{Result, FlareErr};
 use crate::connections::{WsConnection, QuicConnection};
 use crate::server::server_handler::ServerHandler;
 use crate::server::sys_handler::SystemHandler;

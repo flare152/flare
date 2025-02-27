@@ -1,4 +1,4 @@
-pub mod common;
+
 pub mod connections;
 
 #[cfg(feature = "client")]
@@ -9,7 +9,6 @@ pub mod server;
 
 pub mod telecom;
 
-pub use common::error::{Result, FlareErr};
 pub use connections::Connection;
 
 #[cfg(feature = "client")]

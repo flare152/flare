@@ -1,7 +1,7 @@
 use crate::client::client::ClientState;
 use crate::client::message_handler::MessageHandler;
 use crate::client::sys_handler::{ClientSystemHandler, DefClientSystemHandler};
-use crate::common::error::Result;
+use flare::error::Result;
 use log::{debug, error};
 use protobuf_codegen::{Command, Response};
 

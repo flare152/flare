@@ -1,7 +1,9 @@
 [package]
 name = "im_core"
+authors.workspace = true
 version.workspace = true
 edition.workspace = true
+rust-version.workspace = true
 
 [features]
 default = ["client", "server"]
@@ -20,21 +22,23 @@ server = [
 full = ["client", "server"]
 
 [dependencies]
+flare = { version = "0.1.0",  path = "../flare" }
+protobuf-codegen = { version = "0.1.0" ,path = "../protobuf-codegen" }
 tokio = { workspace = true }
 anyhow = { workspace = true }
 async-trait = { workspace = true }
-thiserror = { workspace = true }
 prost = { workspace = true }
 futures = { workspace = true }
 uuid = { workspace = true }
-protobuf-codegen = { path = "../protobuf-codegen" }
+
 log = { workspace = true }
 chrono = { workspace = true }
 url = { workspace = true }
 
-# quic
-#quic
+# websocket
 tokio-tungstenite = { workspace = true, optional = true }
+#quic
+
 quinn = { workspace = true, optional = true }
 rustls = { workspace = true, optional = true }
 rustls-pemfile = { workspace = true, optional = true }

@@ -1,6 +1,6 @@
 use std::future::Future;
 use crate::connections::connection::{Connection, ConnectionState};
-use crate::common::error::{FlareErr, Result};
+use flare::error::{FlareErr, Result};
 use futures::stream::{SplitSink, SplitStream};
 use futures::{SinkExt, StreamExt};
 use log::{debug, warn};
