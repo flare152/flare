@@ -62,7 +62,7 @@ impl ConsulDiscover {
         if let Some(token) = &self.config.token {
             health_request = health_request.header("X-Consul-Token", token);
         }
-        
+
         let healthy_services = match health_request.send().await {
             Ok(health_response) => {
                 match health_response.json::<Vec<serde_json::Value>>().await {
@@ -223,7 +223,7 @@ impl RpcDiscovery for ConsulDiscover {
 
         let this = self.clone();
         let task = tokio::spawn(async move {
-            let mut interval = tokio::time::interval(Duration::from_secs(3));
+            let mut interval = tokio::time::interval(Duration::from_secs(30));
             
             loop {
                 interval.tick().await;
