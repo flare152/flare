@@ -16,6 +16,7 @@ where
 {
     service_name: String,
     discovery: D,
+    protocol: String,
     _marker: PhantomData<T>,
 }
 
@@ -28,15 +29,22 @@ where
         Self {
             service_name: service_name.into(),
             discovery,
+            protocol: "http".to_string(),
             _marker: PhantomData,
         }
+    }
+
+    pub fn with_protocol(mut self, protocol: impl Into<String>) -> Self {
+        self.protocol = protocol.into();
+        self
     }
 
     /// 获取一个可用的客户端
     pub async fn client(&self) -> Result<T, ServiceError> {
         let endpoint = self.discovery.discover(&self.service_name).await?;
         
-        let channel = Channel::from_shared(endpoint.url)
+        let url = format!("{}://{}:{}", self.protocol, endpoint.address, endpoint.port);
+        let channel = Channel::from_shared(url)
             .map_err(|e| ServiceError::ConnectionError(e.to_string()))?
             .connect()
             .await

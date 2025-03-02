@@ -9,6 +9,7 @@
       <sourceFolder url="file://$MODULE_DIR$/src" isTestSource="false" />
       <sourceFolder url="file://$MODULE_DIR$/rpc_core/src" isTestSource="false" />
       <sourceFolder url="file://$MODULE_DIR$/flare/src" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/rpc_core/examples" isTestSource="false" />
       <excludeFolder url="file://$MODULE_DIR$/protobuf-codegen/target" />
       <excludeFolder url="file://$MODULE_DIR$/target" />
     </content>

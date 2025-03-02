@@ -43,7 +43,8 @@ pub trait RpcDiscovery: Send + Sync + Clone + 'static {
 
 #[derive(Clone)]
 pub struct ServiceEndpoint {
-    pub url: String,
+    pub address: String,
+    pub port: u16,
     pub weight: u32,
 }
 

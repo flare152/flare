@@ -65,7 +65,8 @@ mod tests {
 
         // 测试服务发现
         let endpoint = discover.discover("test-service").await.expect("Failed to discover service");
-        assert_eq!(endpoint.url, "http://127.0.0.1:8080");
+        assert_eq!(endpoint.address, "127.0.0.1");
+        assert_eq!(endpoint.port, 8080);
         assert_eq!(endpoint.weight, 3);
 
         // 测试注销服务
@@ -115,8 +116,7 @@ mod tests {
         let mut ports = Vec::new();
         for _ in 0..3 {
             let endpoint = discover_rr.discover("test-lb-service").await.expect("Failed to discover service");
-            let port = endpoint.url.split(':').last().unwrap().parse::<u16>().unwrap();
-            ports.push(port);
+            ports.push(endpoint.port);
         }
         
         // 验证轮询是否访问了不同端口
@@ -131,7 +131,8 @@ mod tests {
 
         // 验证随机策略能够发现服务
         let endpoint = discover_random.discover("test-lb-service").await.expect("Failed to discover service with random strategy");
-        assert!(endpoint.url.starts_with("http://127.0.0.1:"));
+        assert_eq!(endpoint.address, "127.0.0.1");
+        assert!(endpoint.port >= 8081 && endpoint.port <= 8083);
         assert_eq!(endpoint.weight, 1);
         
         // 清理测试服务
