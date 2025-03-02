@@ -22,28 +22,28 @@ pub struct AppContext {
 
 impl AppContext {
     // 基础信息获取
-    pub fn remote_addr(&self) -> &str {
-        &self.remote_addr
+    pub fn remote_addr(&self) -> String {
+        self.remote_addr.clone()
     }
 
     pub fn command(&self) -> Option<Command> {
         self.command
     }
 
-    pub fn user_id(&self) -> Option<&str> {
-        self.user_id.as_deref()
+    pub fn user_id(&self) -> Option<String> {
+        self.user_id.clone()
     }
 
     pub fn platform(&self) -> Option<i32> {
         self.platform
     }
 
-    pub fn client_id(&self) -> Option<&str> {
-        self.client_id.as_deref()
+    pub fn client_id(&self) -> Option<String> {
+        self.client_id.clone()
     }
 
-    pub fn language(&self) -> Option<&str> {
-        self.language.as_deref()
+    pub fn language(&self) -> Option<String> {
+        self.language.clone()
     }
 
     // 数据操作相关
@@ -126,6 +126,18 @@ impl AppContext {
         self.language = None;
         self.conn_id = String::new();
         self.client_msg_id = String::new();
+    }
+
+    pub fn values(&self) -> &Arc<Mutex<HashMap<String, String>>> {
+        &self.values
+    }
+
+    pub fn conn_id(&self) -> String {
+        self.conn_id.clone()
+    }
+
+    pub fn client_msg_id(&self) -> String {
+        self.client_msg_id.clone()
     }
 }
 
