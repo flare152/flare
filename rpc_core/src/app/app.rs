@@ -1,5 +1,5 @@
 use crate::app::AppConfig;
-use crate::{Registration, Registry};
+use crate::discover::{Registration, Registry};
 use anyhow;
 use log::{error, info};
 use std::collections::HashMap;

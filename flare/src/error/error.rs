@@ -161,7 +161,7 @@ impl FlareErr {
         FlareErr::ConnectionError(msg.into())
     }
 
-    pub fn decode_error(err: impl std::error::Error) -> Self {
+    pub fn decode_error(err: prost::DecodeError) -> Self {
         FlareErr::DecodeError(err)
     }
 }

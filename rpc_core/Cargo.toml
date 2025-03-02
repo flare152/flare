@@ -6,14 +6,14 @@ edition.workspace = true
 rust-version.workspace = true
 
 [dependencies]
+flare = { version = "0.1.0",  path = "../flare" }
+protobuf-codegen = { version = "0.1.0" ,path = "../protobuf-codegen" }
 tokio = { workspace = true }
 anyhow = { workspace = true }
 async-trait = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
 thiserror = { workspace = true }
-async-broadcast = { workspace = true }
-dashmap = { workspace = true }
 log = { workspace = true }
 reqwest = { workspace = true, features = ["json"] }
 etcd-client = {workspace = true}

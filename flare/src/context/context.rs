@@ -1,4 +1,3 @@
-
 use crate::error::{FlareErr, Result};
 use log::debug;
 use prost::Message;
@@ -14,7 +13,7 @@ pub struct AppContext {
     data: Vec<u8>,
     values: Arc<Mutex<HashMap<String, String>>>,
     user_id: Option<String>,
-    platform: Option<Platform>,
+    platform: Option<i32>,
     client_id: Option<String>,     // 客户端标识
     language: Option<String>,
     conn_id: String,
@@ -35,7 +34,7 @@ impl AppContext {
         self.user_id.as_deref()
     }
 
-    pub fn platform(&self) -> Option<Platform> {
+    pub fn platform(&self) -> Option<i32> {
         self.platform
     }
 
@@ -155,7 +154,7 @@ pub struct AppContextBuilder {
     data: Option<Vec<u8>>,
     values: Option<Arc<Mutex<HashMap<String, String>>>>,
     user_id: Option<String>,
-    platform: Option<Platform>,
+    platform: Option<i32>,
     client_id: Option<String>,
     client_msg_id: Option<String>,
     conn_id: Option<String>,
@@ -191,7 +190,7 @@ impl AppContextBuilder {
         self
     }
 
-    pub fn platform(mut self, platform: Platform) -> Self {
+    pub fn platform(mut self, platform: i32) -> Self {
         self.platform = Some(platform);
         self
     }

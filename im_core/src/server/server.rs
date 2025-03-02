@@ -145,7 +145,7 @@ where
                         AppContextBuilder::new()
                             .user_id(login_resp.user_id.clone())
                             .remote_addr(info.remote_addr.clone())
-                            .platform(info.platform)
+                            .platform(info.platform as i32)
                             .client_id(info.client_id.clone()),
                         info.conn_id.clone(),
                         info.client_id.clone(),
@@ -366,7 +366,7 @@ where
                                 .user_id(info.user_id.clone())
                                 .remote_addr(info.remote_addr.clone())
                                 .command(Some(comm))
-                                .platform(info.platform)
+                                .platform(info.platform as i32)
                                 .data(msg.data.clone())
                                 .with_language(info.language.clone())
                                 .client_id(info.client_id.clone()),
