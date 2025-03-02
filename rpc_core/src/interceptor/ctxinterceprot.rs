@@ -1,11 +1,13 @@
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
 use tonic::{Request, Status};
-use tonic::service::Interceptor;
+use tower::{Service, Layer};
 use flare::context::{AppContext, AppContextBuilder};
 use tonic::metadata::MetadataValue;
 use std::str::FromStr;
 use tonic::metadata::MetadataKey;
+use std::future::Future;
+use std::pin::Pin;
 
 const REMOTE_ADDR_KEY: &str = "remote-addr";
 const USER_ID_KEY: &str = "user-id";
@@ -17,11 +19,11 @@ const CLIENT_MSG_ID_KEY: &str = "client-msg-id";
 const VALUES_PREFIX: &str = "ctx-val-";
 
 #[derive(Clone)]
-pub struct AppContextInterceptor {
+pub struct AppContextConfig {
     context: Arc<Mutex<Option<AppContext>>>,
 }
 
-impl AppContextInterceptor {
+impl AppContextConfig {
     pub fn new() -> Self {
         Self {
             context: Arc::new(Mutex::new(None)),
@@ -35,71 +37,169 @@ impl AppContextInterceptor {
     }
 }
 
-impl Default for AppContextInterceptor {
+impl Default for AppContextConfig {
     fn default() -> Self {
         Self::new()
     }
 }
 
-impl Interceptor for AppContextInterceptor {
-    fn call(&mut self, mut request: Request<()>) -> Result<Request<()>, Status> {
-        let context = self.context.lock()
-            .map_err(|_| Status::internal("Failed to lock context"))?;
-            
-        if let Some(ctx) = context.as_ref() {
-            let mut metadata = request.metadata_mut();
-            
-            // 添加所有基本字段
-            if let Ok(val) = MetadataValue::from_str(&ctx.remote_addr()) {
-                metadata.insert(REMOTE_ADDR_KEY, val);
-            }
+#[derive(Clone)]
+pub struct AppContextLayer {
+    config: Arc<AppContextConfig>,
+}
 
-            if let Some(user_id) = ctx.user_id() {
-                if let Ok(val) = MetadataValue::from_str(&user_id) {
-                    metadata.insert(USER_ID_KEY, val);
+impl AppContextLayer {
+    pub fn new(config: AppContextConfig) -> Self {
+        Self {
+            config: Arc::new(config),
+        }
+    }
+}
+
+impl<S> Layer<S> for AppContextLayer {
+    type Service = AppContextInterceptor<S>;
+
+    fn layer(&self, inner: S) -> Self::Service {
+        AppContextInterceptor {
+            inner,
+            config: self.config.clone(),
+        }
+    }
+}
+
+#[derive(Clone)]
+pub struct AppContextInterceptor<S> {
+    inner: S,
+    config: Arc<AppContextConfig>,
+}
+
+impl<S, B> Service<Request<B>> for AppContextInterceptor<S>
+where
+    S: Service<Request<B>, Response = tonic::Response<B>, Error = Status> + Clone + Send + 'static,
+    S::Future: Send + 'static,
+    B: Send + 'static,
+{
+    type Response = tonic::Response<B>;
+    type Error = Status;
+    type Future = Pin<Box<dyn Future<Output = Result<Self::Response, Self::Error>> + Send + 'static>>;
+
+    fn poll_ready(&mut self, cx: &mut std::task::Context<'_>) -> std::task::Poll<Result<(), Self::Error>> {
+        self.inner.poll_ready(cx)
+    }
+
+    fn call(&mut self, mut request: Request<B>) -> Self::Future {
+        if let Ok(guard) = self.config.context.lock() {
+            if let Some(ctx) = guard.as_ref() {
+                let metadata = request.metadata_mut();
+                
+                // 添加所有基本字段
+                if let Ok(val) = MetadataValue::from_str(&ctx.remote_addr()) {
+                    metadata.insert(REMOTE_ADDR_KEY, val);
                 }
-            }
 
-            if let Some(platform) = ctx.platform() {
-                if let Ok(val) = MetadataValue::from_str(&platform.to_string()) {
-                    metadata.insert(PLATFORM_KEY, val);
+                if let Some(user_id) = ctx.user_id() {
+                    if let Ok(val) = MetadataValue::from_str(&user_id) {
+                        metadata.insert(USER_ID_KEY, val);
+                    }
                 }
-            }
 
-            if let Some(client_id) = ctx.client_id() {
-                if let Ok(val) = MetadataValue::from_str(&client_id) {
-                    metadata.insert(CLIENT_ID_KEY, val);
+                if let Some(platform) = ctx.platform() {
+                    if let Ok(val) = MetadataValue::from_str(&platform.to_string()) {
+                        metadata.insert(PLATFORM_KEY, val);
+                    }
                 }
-            }
 
-            if let Some(language) = ctx.language() {
-                if let Ok(val) = MetadataValue::from_str(&language) {
-                    metadata.insert(LANGUAGE_KEY, val);
+                if let Some(client_id) = ctx.client_id() {
+                    if let Ok(val) = MetadataValue::from_str(&client_id) {
+                        metadata.insert(CLIENT_ID_KEY, val);
+                    }
                 }
-            }
 
-            // 添加 conn_id 和 client_msg_id
-            let conn_id = ctx.conn_id();
-            if let Ok(val) = MetadataValue::from_str(&conn_id) {
-                metadata.insert(CONN_ID_KEY, val);
-            }
+                if let Some(language) = ctx.language() {
+                    if let Ok(val) = MetadataValue::from_str(&language) {
+                        metadata.insert(LANGUAGE_KEY, val);
+                    }
+                }
 
-            let client_msg_id = ctx.client_msg_id();
-            if let Ok(val) = MetadataValue::from_str(&client_msg_id) {
-                metadata.insert(CLIENT_MSG_ID_KEY, val);
-            }
-            
-            // 添加自定义值
-            if let Ok(values) = ctx.values().lock() {
-                for (key, value) in values.iter() {
-                    let metadata_key = format!("{}{}", VALUES_PREFIX, key);
-                    if let (Ok(key), Ok(val)) = (MetadataKey::from_bytes(metadata_key.as_bytes()), MetadataValue::try_from(value.as_str())) {
-                        metadata.insert(key, val);
+                let conn_id = ctx.conn_id();
+                if let Ok(val) = MetadataValue::from_str(&conn_id) {
+                    metadata.insert(CONN_ID_KEY, val);
+                }
+
+                let client_msg_id = ctx.client_msg_id();
+                if let Ok(val) = MetadataValue::from_str(&client_msg_id) {
+                    metadata.insert(CLIENT_MSG_ID_KEY, val);
+                }
+                
+                // 添加自定义值
+                if let Ok(values) = ctx.values().lock() {
+                    for (key, value) in values.iter() {
+                        let metadata_key = format!("{}{}", VALUES_PREFIX, key);
+                        if let (Ok(key), Ok(val)) = (MetadataKey::from_bytes(metadata_key.as_bytes()), MetadataValue::try_from(value.as_str())) {
+                            metadata.insert(key, val);
+                        }
                     }
                 }
             }
         }
-        Ok(request)
+
+        let mut inner = self.inner.clone();
+        Box::pin(async move {
+            inner.call(request).await
+        })
+    }
+}
+
+pub fn build_req_metadata_form_ctx<B>(ctx: &AppContext, request: &mut Request<B>) {
+    let metadata = request.metadata_mut();
+    
+    // 添加所有基本字段
+    if let Ok(val) = MetadataValue::from_str(&ctx.remote_addr()) {
+        metadata.insert(REMOTE_ADDR_KEY, val);
+    }
+
+    if let Some(user_id) = ctx.user_id() {
+        if let Ok(val) = MetadataValue::from_str(&user_id) {
+            metadata.insert(USER_ID_KEY, val);
+        }
+    }
+
+    if let Some(platform) = ctx.platform() {
+        if let Ok(val) = MetadataValue::from_str(&platform.to_string()) {
+            metadata.insert(PLATFORM_KEY, val);
+        }
+    }
+
+    if let Some(client_id) = ctx.client_id() {
+        if let Ok(val) = MetadataValue::from_str(&client_id) {
+            metadata.insert(CLIENT_ID_KEY, val);
+        }
+    }
+
+    if let Some(language) = ctx.language() {
+        if let Ok(val) = MetadataValue::from_str(&language) {
+            metadata.insert(LANGUAGE_KEY, val);
+        }
+    }
+
+    let conn_id = ctx.conn_id();
+    if let Ok(val) = MetadataValue::from_str(&conn_id) {
+        metadata.insert(CONN_ID_KEY, val);
+    }
+
+    let client_msg_id = ctx.client_msg_id();
+    if let Ok(val) = MetadataValue::from_str(&client_msg_id) {
+        metadata.insert(CLIENT_MSG_ID_KEY, val);
+    }
+
+    // 添加自定义值
+    if let Ok(values) = ctx.values().lock() {
+        for (key, value) in values.iter() {
+            let metadata_key = format!("{}{}", VALUES_PREFIX, key);
+            if let (Ok(key), Ok(val)) = (MetadataKey::from_bytes(metadata_key.as_bytes()), MetadataValue::try_from(value.as_str())) {
+                metadata.insert(key, val);
+            }
+        }
     }
 }
 
@@ -112,7 +212,7 @@ pub fn build_context_from_metadata(metadata: &tonic::metadata::MetadataMap) -> R
             .map_err(|_| Status::internal("Invalid remote_addr format"))?
             .to_string());
     } else {
-        return Err(Status::internal("remote_addr is required"));
+        builder = builder.remote_addr("127.0.0.1".to_string());
     }
 
     if let Some(user_id) = metadata.get(USER_ID_KEY) {

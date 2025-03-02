@@ -7,7 +7,6 @@ rust-version.workspace = true
 
 [dependencies]
 flare = { version = "0.1.0",  path = "../flare" }
-protobuf-codegen = { version = "0.1.0" ,path = "../protobuf-codegen" }
 tokio = { workspace = true }
 anyhow = { workspace = true }
 async-trait = { workspace = true }
@@ -21,6 +20,8 @@ uuid = { workspace = true}
 tonic = { workspace = true }
 rand = { workspace = true}
 prost = {workspace = true}
+once_cell = { workspace = true}
+tower = { workspace = true }
 
 [build-dependencies]
 tonic-build = { workspace = true }
