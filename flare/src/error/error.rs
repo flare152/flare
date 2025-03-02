@@ -83,8 +83,11 @@ pub enum FlareErr {
     // 资源错误
     #[error("resource error: {0}")]
     ResourceError(String),
-}
 
+    #[error("service not found: {0}")]
+    ServiceNotFound(String),
+
+}
 // 推送到客户端产生错误
 pub struct FlareError {
     pub code: i32,
@@ -148,6 +151,18 @@ impl FlareErr {
 
     pub fn resource_error(msg: impl Into<String>) -> Self {
         FlareErr::ResourceError(msg.into())
+    }
+
+    pub fn not_found_service(msg: impl Into<String>) -> Self {
+        FlareErr::ServiceNotFound(msg.into())
+    }
+
+    pub fn connection_error(msg: impl Into<String>) -> Self {
+        FlareErr::ConnectionError(msg.into())
+    }
+
+    pub fn decode_error(err: impl std::error::Error) -> Self {
+        FlareErr::DecodeError(err)
     }
 }
 

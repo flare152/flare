@@ -6,9 +6,6 @@ edition.workspace = true
 rust-version.workspace = true
 
 [dependencies]
-volo = { workspace = true }
-volo-grpc = { workspace = true }
-pilota = { workspace = true }
 tokio = { workspace = true }
 anyhow = { workspace = true }
 async-trait = { workspace = true }
@@ -21,3 +18,9 @@ log = { workspace = true }
 reqwest = { workspace = true, features = ["json"] }
 etcd-client = {workspace = true}
 uuid = { workspace = true}
+tonic = { workspace = true }
+rand = { workspace = true}
+prost = {workspace = true}
+
+[build-dependencies]
+tonic-build = { workspace = true }

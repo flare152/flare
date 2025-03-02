@@ -1,13 +1,14 @@
 use crate::app::AppConfig;
-use crate::discover::LogRegistry;
 use crate::{Registration, Registry};
 use anyhow;
 use log::{error, info};
 use std::collections::HashMap;
-use std::net::ToSocketAddrs;
+use std::net::SocketAddr;
 use tokio::sync::oneshot;
 use uuid;
-use volo_grpc::BoxError;
+use crate::discover::LogRegistry;
+use tonic::transport::Server;
+use std::future::Future;
 
 pub type DefaultApp = App<LogRegistry>;
 
@@ -100,10 +101,10 @@ where
     /// * `ip` - 监听IP地址
     /// * `port` - 监听端口
     /// * `server_fn` - 服务器函数
-    pub async fn run<F, Fut>(self, ip: &str, port: u16, server_fn: F) -> Result<(), BoxError>
+    pub async fn run<F, Fut>(self, ip: &str, port: u16, server_fn: F) -> Result<(), Box<dyn std::error::Error + Send + Sync>>
     where
-        F: FnOnce(volo::net::Address) -> Fut + Send + 'static,
-        Fut: std::future::Future<Output = Result<(), BoxError>> + Send + 'static,
+        F: FnOnce(Server) -> Fut + Send + 'static,
+        Fut: Future<Output = Result<(), Box<dyn std::error::Error + Send + Sync>>> + Send + 'static,
     {
         // 准备注册信息
         let registration = Registration::new(
@@ -116,13 +117,15 @@ where
             self.config.metadata,
             self.config.version,
         );
+        
         let register = if let Some(r) = self.register {
             r
         } else {
             return Err("No registry provided".into());
         };
+        
         // 处理服务注册
-        register.register(registration).await?;
+        register_server(register.clone(), registration).await?;
 
         // 启动心跳检查
         let service_id = self.config.id.clone();
@@ -138,24 +141,24 @@ where
         });
 
         // 启动服务器
-        let addr = format!("{}:{}", ip, port)
-            .to_socket_addrs()?
-            .next()
-            .ok_or("invalid address")?;
-
-        let server_addr = volo::net::Address::from(addr);
+        let addr: SocketAddr = format!("{}:{}", ip, port).parse()?;
+        let server = Server::builder();
         info!("Starting server at: {}", addr);
 
         // 创建关闭信号通道
         let (tx, rx) = oneshot::channel();
         
         // 启动服务器
-        let server_handle = tokio::spawn(server_fn(server_addr));
+        let server_handle = tokio::spawn(server_fn(server));
 
         // 监听关闭信号
         tokio::spawn(async move {
-            tokio::signal::ctrl_c().await.unwrap();
-            tx.send(()).unwrap();
+            let mut term = tokio::signal::unix::signal(tokio::signal::unix::SignalKind::terminate()).unwrap();
+            tokio::select! {
+                _ = tokio::signal::ctrl_c() => {},
+                _ = term.recv() => {},
+            }
+            let _ = tx.send(());
         });
 
         // 等待关闭信号
@@ -166,16 +169,16 @@ where
         heartbeat_handle.abort();
 
         // 注销服务
-        register.deregister(&self.config.id).await?;
+        deregister_server(register, self.config.id).await?;
 
         // 等待服务器关闭
-        server_handle.await?;
+        server_handle.await??;
         Ok(())
     }
 }
 
 /// 注册服务
-async fn register_server<R>(registry: R, reg: Registration) -> Result<(), BoxError>
+async fn register_server<R>(registry: R, reg: Registration) -> Result<(), Box<dyn std::error::Error + Send + Sync>>
 where
     R: Registry,
 {
@@ -184,7 +187,7 @@ where
 }
 
 /// 注销服务
-async fn deregister_server<R>(registry: R, id: String) -> Result<(), BoxError>
+async fn deregister_server<R>(registry: R, id: String) -> Result<(), Box<dyn std::error::Error + Send + Sync>>
 where
     R: Registry,
 {

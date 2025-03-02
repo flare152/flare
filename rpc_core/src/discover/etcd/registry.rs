@@ -29,7 +29,7 @@ impl EtcdRegistry {
 
     async fn put_service(&self, key: &str, value: &str) -> Result<(), etcd_client::Error> {
         let mut client = self.client.clone();
-        let lease =client.lease_grant(self.ttl.as_secs() as i64, None).await?;
+        let lease = client.lease_grant(self.ttl.as_secs() as i64, None).await?;
         let lease_id = lease.id();
         let options = etcd_client::PutOptions::new().with_lease(lease_id);
         client.put(key, value, Some(options)).await?;
@@ -69,7 +69,7 @@ impl EtcdRegistry {
 
 #[async_trait]
 impl Registry for EtcdRegistry {
-    type Error = std::io::Error;
+    type Error = etcd_client::Error;
 
     async fn register(&self, reg: Registration) -> Result<(), Self::Error> {
         let service = EtcdService {
@@ -79,14 +79,14 @@ impl Registry for EtcdRegistry {
             port: reg.port,
             tags: reg.tags,
             meta: reg.meta,
+            weight: reg.weight,
+            version: reg.version,
         };
 
         let key = format!("{}{}", self.config.prefix, service.id);
         let value = serde_json::to_string(&service).unwrap();
         
-        self.put_service(&key, &value)
-            .await
-            .map_err(|e| std::io::Error::new(std::io::ErrorKind::Other, e))?;
+        self.put_service(&key, &value).await?;
         self.start_heartbeat(reg.id).await;
         
         Ok(())
@@ -96,12 +96,11 @@ impl Registry for EtcdRegistry {
         let key = format!("{}{}", self.config.prefix, service_id);
         self.client.clone()
             .delete(key, None)
-            .await
-            .map_err(|e| std::io::Error::new(std::io::ErrorKind::Other, e))?;
+            .await?;
         Ok(())
     }
 
     async fn heartbeat(&self, service_id: &str) -> Result<(), Self::Error> {
-        self.refresh_service(service_id).await.map_err(|e| std::io::Error::new(std::io::ErrorKind::Other, e))
+        self.refresh_service(service_id).await
     }
 } 

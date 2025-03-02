@@ -2,9 +2,8 @@ use crate::discover::registry::{Registration, Registry};
 use async_trait::async_trait;
 use reqwest;
 use std::time::Duration;
-use super::{ConsulConfig, ConsulService, ConsulCheck, RegisterService};
 use tokio::time::interval;
-use serde::Serialize;
+use super::{ConsulConfig, ConsulCheck, RegisterService};
 
 #[derive(Clone)]
 pub struct ConsulRegistry {
@@ -61,26 +60,23 @@ impl ConsulRegistry {
         }
     }
 
-    async fn request<T: Serialize>(&self, method: reqwest::Method, path: &str, body: Option<&T>) -> Result<(), reqwest::Error> {
+    async fn request<T>(&self, method: reqwest::Method, path: &str, body: Option<&T>) -> Result<(), reqwest::Error>
+    where
+        T: serde::Serialize,
+    {
         let url = format!("{}{}", self.config.url(), path);
-        let mut req = self.client.request(method, &url);
+        let mut request = self.client.request(method, &url);
         
-        if let Some(data) = body {
-            req = req.json(data);
+        if let Some(token) = &self.config.token {
+            request = request.header("X-Consul-Token", token);
         }
         
-        let res = req.send().await?;
-        if !res.status().is_success() {
-            let err = res.error_for_status().unwrap_err();
-            let status = err.status().unwrap_or_default();
-            
-            log::error!(
-                "Consul API 错误: 路径={}, 状态码={}", 
-                path, status
-            );
-            
-            return Err(err);
+        if let Some(body) = body {
+            request = request.json(body);
         }
+        
+        let response = request.send().await?;
+        response.error_for_status()?;
         
         Ok(())
     }
@@ -94,13 +90,17 @@ impl Registry for ConsulRegistry {
         // 先检查 Consul 是否可用
         self.request::<()>(reqwest::Method::GET, "/v1/status/leader", None).await?;
 
+        let mut meta = reg.meta;
+        meta.insert("weight".to_string(), reg.weight.to_string());
+        meta.insert("version".to_string(), reg.version);
+
         let service = RegisterService {
             id: reg.id.clone(),
             name: reg.name,
             tags: reg.tags,
             address: reg.address,
             port: reg.port,
-            meta: reg.meta,
+            meta,
             check: ConsulCheck {
                 ttl: format!("{}s", self.ttl.as_secs()),
                 status: "passing".to_string(),

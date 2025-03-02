@@ -1,0 +1,19 @@
+syntax = "proto3";
+
+package echo;
+
+// Echo 服务定义
+service Echo {
+    // Echo 方法
+    rpc Echo (EchoRequest) returns (EchoResponse);
+}
+
+// Echo 请求
+message EchoRequest {
+    string message = 1;
+}
+
+// Echo 响应
+message EchoResponse {
+    string message = 1;
+} 

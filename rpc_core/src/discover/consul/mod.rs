@@ -6,7 +6,6 @@ pub use discover::ConsulDiscover;
 pub use registry::ConsulRegistry;
 
 use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
 use std::time::Duration;
 use reqwest;
 
@@ -65,23 +64,6 @@ struct ConsulService {
     modify_index: Option<u64>,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
-struct ConsulServiceHealth {
-    #[serde(rename = "Node")]
-    node: ConsulNode,
-    #[serde(rename = "Service")]
-    service: ConsulService,
-    #[serde(rename = "Checks")]
-    checks: Vec<ConsulCheck>,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-struct ConsulNode {
-    #[serde(rename = "Node")]
-    node: String,
-    #[serde(rename = "Address")]
-    address: String,
-}
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 struct ConsulCheck {
@@ -105,8 +87,14 @@ struct RegisterService {
     address: String,
     #[serde(rename = "Port")]
     port: u16,
+    // #[serde(rename = "Weight")]
+    // weight: u32,
     #[serde(rename = "Meta")]
     meta: HashMap<String, String>,
+    // #[serde(rename = "Version")]
+    //  version: String,
     #[serde(rename = "Check")]
     check: ConsulCheck,
-} 
+}
+
+use std::collections::HashMap; 

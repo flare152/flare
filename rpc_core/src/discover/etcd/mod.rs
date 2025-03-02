@@ -6,9 +6,7 @@ pub use discover::EtcdDiscover;
 pub use registry::EtcdRegistry;
 
 use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
 use std::time::Duration;
-
 use etcd_client::{Client, ConnectOptions};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -57,26 +55,12 @@ impl EtcdConfig {
 struct EtcdService {
     id: String,
     name: String,
+    tags: Vec<String>,
     address: String,
     port: u16,
-    tags: Vec<String>,
+    weight: u32,
     meta: HashMap<String, String>,
+    version: String,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
-struct EtcdResponse<T> {
-    action: String,
-    node: EtcdNode<T>,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-struct EtcdNode<T> {
-    key: String,
-    value: T,
-    #[serde(rename = "ttl")]
-    ttl: Option<i64>,
-    #[serde(rename = "createdIndex")]
-    created_index: Option<u64>,
-    #[serde(rename = "modifiedIndex")]
-    modified_index: Option<u64>,
-} 
+use std::collections::HashMap; 

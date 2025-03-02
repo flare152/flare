@@ -3,7 +3,6 @@ use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use log;
 
-
 /// 服务注册接口
 #[async_trait]
 pub trait Registry: Send + Sync + Clone + 'static {
@@ -18,7 +17,6 @@ pub trait Registry: Send + Sync + Clone + 'static {
     /// 服务心跳
     async fn heartbeat(&self, service_id: &str) -> Result<(), Self::Error>;
 }
-
 
 /// 服务注册信息
 #[derive(Default, Clone, Serialize, Deserialize)]
@@ -85,4 +83,4 @@ impl Registry for LogRegistry {
         log::debug!("Service heartbeat: {}", service_id);
         Ok(())
     }
-}
+} 
