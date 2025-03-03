@@ -1,6 +1,7 @@
-use protobuf_codegen::{ResCode, Response};
+
 use thiserror::Error;
 use tokio_tungstenite::tungstenite;
+use crate::flare_net::net::{ResCode, Response};
 
 pub type Result<T> = std::result::Result<T, FlareErr>;
 

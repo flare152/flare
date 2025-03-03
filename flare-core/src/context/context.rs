@@ -1,10 +1,10 @@
 use crate::error::{FlareErr, Result};
 use log::debug;
 use prost::Message;
-use protobuf_codegen::{Command, Platform};
 use std::collections::HashMap;
 use std::str::FromStr;
 use std::sync::{Arc, Mutex};
+use crate::flare_net::net::Command;
 
 #[derive(Default)]
 pub struct AppContext {

@@ -1,12 +1,12 @@
 [package]
-name = "flare"
+name = "flare-core"
 version = "0.1.0"
 edition = "2021"
 authors = ["flare Team <flare1522@163.com>"]
 description = "A high performance IM framework core library"
 license = "MIT"
 repository = "https://github.com/flare152/flare"
-documentation = "https://docs.rs/flare"
+documentation = "https://docs.rs/flare-core"
 readme = "README.md"
 keywords = ["im", "framework", "async", "network"]
 categories = ["network-programming"]
@@ -19,11 +19,13 @@ async-trait = { workspace = true }
 log = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
-protobuf-codegen = { path = "../protobuf-codegen", version = "0.1.0" }
-
 # websocket
 tokio-tungstenite = { workspace = true }
+prost = { workspace = true }
 
 [dev-dependencies]
 tokio = { workspace = true, features = ["full"] }
 env_logger = { workspace = true }
+
+[build-dependencies]
+prost-build = { workspace = true }

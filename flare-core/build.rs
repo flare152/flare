@@ -3,7 +3,7 @@ use std::path::PathBuf;
 fn main() -> std::io::Result<()> {
     // 定义.proto文件及其对应的输出目录
     let proto_files = vec![
-        ("proto/net.proto", "src/flare_gen"),
+        ("proto/net.proto", "src/net"),
     ];
 
     // 配置 prost-build
