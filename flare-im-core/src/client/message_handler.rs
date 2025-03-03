@@ -1,6 +1,6 @@
 use async_trait::async_trait;
 use log::debug;
-use protobuf_codegen::{Command, Response};
+use flare_core::flare_net::net::{Command, Response};
 
 #[async_trait]
 pub trait MessageHandler: Send + Sync + 'static {

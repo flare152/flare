@@ -34,23 +34,23 @@ server
 
 ```toml
 [dependencies]
-im_core = { version = "0.1.0", default-features = false, features = ["client"] }
+flare_im_core = { version = "0.1.0", default-features = false, features = ["client"] }
 ```
 
 ### 2. 仅服务端场景
 
 ```toml
 [dependencies]
-im_core = { version = "0.1.0", default-features = false, features = ["server"] }
+flare-im-core = { version = "0.1.0", default-features = false, features = ["server"] }
 ```
 
 ### 3. 完整功能
 
 ```toml
 [dependencies]
-im_core = { version = "0.1.0" }  # 使用默认 features
+flare-im-core = { version = "0.1.0" }  # 使用默认 features
 # 或者
-im_core = { version = "0.1.0", features = ["full"] }
+flare-im-core = { version = "0.1.0", features = ["full"] }
 ```
 
 ## 代码示例
@@ -58,7 +58,7 @@ im_core = { version = "0.1.0", features = ["full"] }
 ### WebSocket 客户端
 
 ```rust
-use im_core::client::websocket::WsClient;
+use flare_im_core::client::websocket::WsClient;
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
@@ -76,7 +76,7 @@ async fn main() -> anyhow::Result<()> {
 ### QUIC 服务端
 
 ```rust
-use im_core::server::quic::QuicServer;
+use flare_im_core::server::quic::QuicServer;
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {

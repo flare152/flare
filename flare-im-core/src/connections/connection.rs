@@ -1,6 +1,6 @@
-use flare::error::Result;
+use flare_core::error::Result;
 use async_trait::async_trait;
-use protobuf_codegen::{Message as ProtoMessage, Platform};
+use flare_core::flare_net::net::{Message as ProtoMessage, Platform};
 use std::pin::Pin;
 use std::future::Future;
 use std::time::Duration;

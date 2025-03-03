@@ -1,9 +1,9 @@
 use crate::client::client::ClientState;
 use crate::client::message_handler::MessageHandler;
 use crate::client::sys_handler::{ClientSystemHandler, DefClientSystemHandler};
-use flare::error::Result;
+use flare_core::error::Result;
 use log::{debug, error};
-use protobuf_codegen::{Command, Response};
+use flare_core::flare_net::net::{Command, Response};
 
 /// 客户端消息处理器
 #[derive(Default)]

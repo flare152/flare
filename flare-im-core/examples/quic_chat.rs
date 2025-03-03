@@ -1,23 +1,23 @@
-use im_core::client::client::Client;
-use im_core::client::config::ClientConfig;
-use flare::error::{FlareErr, Result};
-use im_core::connections::quic_conf::{
+use flare_im_core::client::client::Client;
+use flare_im_core::client::config::ClientConfig;
+use flare_core::error::{FlareErr, Result};
+use flare_im_core::connections::quic_conf::{
     create_client_config, create_server_config, init_crypto
 };
-use im_core::connections::{Connection, QuicConnection};
+use flare_im_core::connections::{Connection, QuicConnection};
 use log::{debug, error, info};
-use protobuf_codegen::{Command, Message as ProtoMessage};
+use flare_core::flare_net::net::{Command, Message as ProtoMessage};
 use quinn::Endpoint;
 use std::future::Future;
 use std::io::{self, Write};
 use std::net::{AddrParseError, IpAddr, Ipv4Addr, SocketAddr};
 use std::pin::Pin;
 use std::sync::Arc;
-use im_core::server::auth_handler::DefAuthHandler;
-use im_core::server::handlers::ServerMessageHandler;
-use im_core::server::server::Server;
-use im_core::server::server_handler::DefServerHandler;
-use im_core::server::sys_handler::DefSystemHandler;
+use flare_im_core::server::auth_handler::DefAuthHandler;
+use flare_im_core::server::handlers::ServerMessageHandler;
+use flare_im_core::server::server::Server;
+use flare_im_core::server::server_handler::DefServerHandler;
+use flare_im_core::server::sys_handler::DefSystemHandler;
 
 // 辅助函数：解析地址
 fn parse_addr(addr: &str) -> Result<SocketAddr> {
@@ -29,8 +29,8 @@ fn parse_addr(addr: &str) -> Result<SocketAddr> {
 // 服务器运行逻辑
 async fn run_server() -> Result<()> {
     let server_config = create_server_config(
-        "/Users/hg/workspace/rust/flare/im_core/certs/cert.pem",
-        "/Users/hg/workspace/rust/flare/im_core/certs/key.pem"
+        "/Users/hg/workspace/rust/flare/flare_im_core/certs/cert.pem",
+        "/Users/hg/workspace/rust/flare/flare_im_core/certs/key.pem"
     )?;
     
     let addr = parse_addr("127.0.0.1:8443")?;
@@ -60,7 +60,7 @@ async fn run_server() -> Result<()> {
 
 // 客户端运行逻辑
 async fn run_client() -> Result<()> {
-    let client_config = create_client_config("/Users/hg/workspace/rust/flare/im_core/certs/cert.pem",true)
+    let client_config = create_client_config("/Users/hg/workspace/rust/flare/flare_im_core/certs/cert.pem",true)
         .map_err(|e| FlareErr::ConnectionError(e.to_string()))?;
 
     let bind_addr = SocketAddr::new(IpAddr::V4(Ipv4Addr::UNSPECIFIED), 0);

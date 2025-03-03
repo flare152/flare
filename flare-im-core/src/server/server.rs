@@ -1,11 +1,11 @@
-use flare::context::{AppContext, AppContextBuilder};
-use flare::error::{FlareErr, Result};
+use flare_core::context::{AppContext, AppContextBuilder};
+use flare_core::error::{FlareErr, Result};
 use crate::connections::Connection;
 use crate::server::handlers::{CommandHandler, ServerMessageHandler};
 use log::{debug, error, info, warn};
 use prost::Message;
-use protobuf_codegen::flare_gen::flare::net::LoginResp;
-use protobuf_codegen::{Command, Message as ProtoMessage, Platform, ResCode, Response};
+use flare_core::flare_net::net::LoginResp;
+use flare_core::flare_net::net::{Command, Message as ProtoMessage, Platform, ResCode, Response};
 use std::collections::HashMap;
 use std::sync::Arc;
 use tokio::sync::Mutex;

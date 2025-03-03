@@ -1,11 +1,11 @@
-use flare::context::AppContext;
-use flare::error::{FlareErr, Result};
+use flare_core::context::AppContext;
+use flare_core::error::{FlareErr, Result};
 use crate::server::handlers::CommandHandler;
 use async_trait::async_trait;
 use log::debug;
 use prost::Message;
-use protobuf_codegen::flare_gen::flare::net::{LoginReq, LoginResp};
-use protobuf_codegen::{Command, ResCode, Response};
+use flare_core::flare_net::net::{LoginReq, LoginResp};
+use flare_core::flare_net::net::{Command, ResCode, Response};
 
 #[async_trait]
 pub trait AuthHandler: Send + Sync {

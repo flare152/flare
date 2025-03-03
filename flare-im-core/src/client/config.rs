@@ -1,5 +1,5 @@
 use std::time::Duration;
-use protobuf_codegen::Platform;
+use flare_core::flare_net::net::Platform;
 
 const PING_INTERVAL: Duration = Duration::from_secs(30);
 const PONG_TIMEOUT: Duration = Duration::from_secs(10);

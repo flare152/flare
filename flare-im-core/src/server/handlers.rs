@@ -1,8 +1,8 @@
-use flare::context::AppContext;
-use flare::error::{FlareErr, Result};
+use flare_core::context::AppContext;
+use flare_core::error::{FlareErr, Result};
 use async_trait::async_trait;
 use log::debug;
-use protobuf_codegen::{Command, ResCode, Response};
+use flare_core::flare_net::net::{Command, ResCode, Response};
 
 use crate::server::auth_handler::{AuthCommandHandler, AuthHandler};
 use crate::server::server::ConnectionInfo;

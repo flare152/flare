@@ -1,5 +1,5 @@
 [package]
-name = "im_core"
+name = "flare-im-core"
 authors.workspace = true
 version.workspace = true
 edition.workspace = true
@@ -22,8 +22,7 @@ server = [
 full = ["client", "server"]
 
 [dependencies]
-flare = { version = "0.1.0",  path = "../flare" }
-protobuf-codegen = { version = "0.1.0" ,path = "../protobuf-codegen" }
+flare-core = { version = "0.1.0",  path = "../flare-core" }
 tokio = { workspace = true }
 anyhow = { workspace = true }
 async-trait = { workspace = true }

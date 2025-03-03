@@ -1,11 +1,11 @@
 use std::future::Future;
 use crate::connections::connection::{Connection, ConnectionState};
-use flare::error::{FlareErr, Result};
+use flare_core::error::{FlareErr, Result};
 use futures::stream::{SplitSink, SplitStream};
 use futures::{SinkExt, StreamExt};
 use log::{debug, warn};
 use prost::Message as ProstMessage;
-use protobuf_codegen::{Command, Message, Platform};
+use flare_core::flare_net::net::{Command, Message, Platform};
 use std::pin::Pin;
 use std::sync::Arc;
 use std::time::{Duration, Instant};

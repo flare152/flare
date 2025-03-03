@@ -9,12 +9,12 @@ use crate::client::config::ClientConfig;
 use crate::client::handlers::ClientMessageHandler;
 use crate::client::sys_handler::ClientSystemHandler;
 use crate::client::message_handler::MessageHandler;
-use flare::error::{Result, FlareErr};
+use flare_core::error::{Result, FlareErr};
 use crate::connections::{Connection, WsConnection, QuicConnection};
 use log::{info, debug, error};
 use std::net::SocketAddr;
 use std::pin::Pin;
-use protobuf_codegen::{Message, Platform, Response};
+use flare_core::flare_net::net::{Message, Platform, Response};
 use crate::connections::quic_conf::create_client_config;
 use std::time::Instant;
 

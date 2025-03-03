@@ -1,8 +1,8 @@
 use crate::client::client::ClientState;
-use flare::error::Result;
+use flare_core::error::Result;
 use async_trait::async_trait;
 use log::debug;
-use protobuf_codegen::Command;
+use flare_core::flare_net::net::Command;
 
 #[async_trait]
 pub trait ClientSystemHandler: Send + Sync + 'static {
