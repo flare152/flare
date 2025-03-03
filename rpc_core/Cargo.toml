@@ -5,8 +5,15 @@ version.workspace = true
 edition.workspace = true
 rust-version.workspace = true
 
+[features]
+default = ["client", "server", "etcd", "consul"]
+client = ["dep:tonic", "tonic/transport", "dep:tower", "dep:rand"]
+server = ["dep:tonic", "dep:tower"]
+etcd = ["dep:etcd-client"]
+consul = ["dep:reqwest"]
+
 [dependencies]
-flare = { version = "0.1.0",  path = "../flare" }
+flare = { version = "0.1.0", path = "../flare" }
 tokio = { workspace = true }
 anyhow = { workspace = true }
 async-trait = { workspace = true }
@@ -14,14 +21,14 @@ serde = { workspace = true }
 serde_json = { workspace = true }
 thiserror = { workspace = true }
 log = { workspace = true }
-reqwest = { workspace = true, features = ["json"] }
-etcd-client = {workspace = true}
-uuid = { workspace = true}
-tonic = { workspace = true }
-rand = { workspace = true}
-prost = {workspace = true}
-env_logger = { workspace = true}
-tower = { workspace = true }
+reqwest = { workspace = true, features = ["json"], optional = true }
+etcd-client = { workspace = true, optional = true }
+uuid = { workspace = true }
+tonic = { workspace = true, default-features = false, optional = true }
+rand = { workspace = true, optional = true }
+prost = { workspace = true }
+env_logger = { workspace = true }
+tower = { workspace = true, optional = true }
 
 [build-dependencies]
 tonic-build = { workspace = true }
@@ -29,7 +36,9 @@ tonic-build = { workspace = true }
 [[example]]
 name = "echo_server"
 path = "examples/echo_server.rs"
+required-features = ["server", "consul"]
 
 [[example]]
 name = "echo_client"
 path = "examples/echo_client.rs"
+required-features = ["client", "consul"]

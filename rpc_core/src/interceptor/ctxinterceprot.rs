@@ -1,13 +1,9 @@
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
 use tonic::{Request, Status};
-use tower::{Service, Layer};
 use flare::context::{AppContext, AppContextBuilder};
-use tonic::metadata::MetadataValue;
+use tonic::metadata::{MetadataValue, MetadataMap, MetadataKey};
 use std::str::FromStr;
-use tonic::metadata::MetadataKey;
-use std::future::Future;
-use std::pin::Pin;
 
 const REMOTE_ADDR_KEY: &str = "remote-addr";
 const USER_ID_KEY: &str = "user-id";
@@ -18,11 +14,20 @@ const CONN_ID_KEY: &str = "conn-id";
 const CLIENT_MSG_ID_KEY: &str = "client-msg-id";
 const VALUES_PREFIX: &str = "ctx-val-";
 
+#[cfg(feature = "client")]
+use {
+    tower::{Service, Layer},
+    std::future::Future,
+    std::pin::Pin,
+};
+
+#[cfg(feature = "client")]
 #[derive(Clone)]
 pub struct AppContextConfig {
     context: Arc<Mutex<Option<AppContext>>>,
 }
 
+#[cfg(feature = "client")]
 impl AppContextConfig {
     pub fn new() -> Self {
         Self {
@@ -37,17 +42,20 @@ impl AppContextConfig {
     }
 }
 
+#[cfg(feature = "client")]
 impl Default for AppContextConfig {
     fn default() -> Self {
         Self::new()
     }
 }
 
+#[cfg(feature = "client")]
 #[derive(Clone)]
 pub struct AppContextLayer {
     config: Arc<AppContextConfig>,
 }
 
+#[cfg(feature = "client")]
 impl AppContextLayer {
     pub fn new(config: AppContextConfig) -> Self {
         Self {
@@ -56,6 +64,7 @@ impl AppContextLayer {
     }
 }
 
+#[cfg(feature = "client")]
 impl<S> Layer<S> for AppContextLayer {
     type Service = AppContextInterceptor<S>;
 
@@ -67,12 +76,14 @@ impl<S> Layer<S> for AppContextLayer {
     }
 }
 
+#[cfg(feature = "client")]
 #[derive(Clone)]
 pub struct AppContextInterceptor<S> {
     inner: S,
     config: Arc<AppContextConfig>,
 }
 
+#[cfg(feature = "client")]
 impl<S, B> Service<Request<B>> for AppContextInterceptor<S>
 where
     S: Service<Request<B>, Response = tonic::Response<B>, Error = Status> + Clone + Send + 'static,
@@ -90,56 +101,7 @@ where
     fn call(&mut self, mut request: Request<B>) -> Self::Future {
         if let Ok(guard) = self.config.context.lock() {
             if let Some(ctx) = guard.as_ref() {
-                let metadata = request.metadata_mut();
-                
-                // 添加所有基本字段
-                if let Ok(val) = MetadataValue::from_str(&ctx.remote_addr()) {
-                    metadata.insert(REMOTE_ADDR_KEY, val);
-                }
-
-                if let Some(user_id) = ctx.user_id() {
-                    if let Ok(val) = MetadataValue::from_str(&user_id) {
-                        metadata.insert(USER_ID_KEY, val);
-                    }
-                }
-
-                if let Some(platform) = ctx.platform() {
-                    if let Ok(val) = MetadataValue::from_str(&platform.to_string()) {
-                        metadata.insert(PLATFORM_KEY, val);
-                    }
-                }
-
-                if let Some(client_id) = ctx.client_id() {
-                    if let Ok(val) = MetadataValue::from_str(&client_id) {
-                        metadata.insert(CLIENT_ID_KEY, val);
-                    }
-                }
-
-                if let Some(language) = ctx.language() {
-                    if let Ok(val) = MetadataValue::from_str(&language) {
-                        metadata.insert(LANGUAGE_KEY, val);
-                    }
-                }
-
-                let conn_id = ctx.conn_id();
-                if let Ok(val) = MetadataValue::from_str(&conn_id) {
-                    metadata.insert(CONN_ID_KEY, val);
-                }
-
-                let client_msg_id = ctx.client_msg_id();
-                if let Ok(val) = MetadataValue::from_str(&client_msg_id) {
-                    metadata.insert(CLIENT_MSG_ID_KEY, val);
-                }
-                
-                // 添加自定义值
-                if let Ok(values) = ctx.values().lock() {
-                    for (key, value) in values.iter() {
-                        let metadata_key = format!("{}{}", VALUES_PREFIX, key);
-                        if let (Ok(key), Ok(val)) = (MetadataKey::from_bytes(metadata_key.as_bytes()), MetadataValue::try_from(value.as_str())) {
-                            metadata.insert(key, val);
-                        }
-                    }
-                }
+                build_req_metadata_form_ctx(ctx, &mut request);
             }
         }
 
@@ -150,10 +112,10 @@ where
     }
 }
 
+#[cfg(feature = "client")]
 pub fn build_req_metadata_form_ctx<B>(ctx: &AppContext, request: &mut Request<B>) {
     let metadata = request.metadata_mut();
     
-    // 添加所有基本字段
     if let Ok(val) = MetadataValue::from_str(&ctx.remote_addr()) {
         metadata.insert(REMOTE_ADDR_KEY, val);
     }
@@ -192,7 +154,6 @@ pub fn build_req_metadata_form_ctx<B>(ctx: &AppContext, request: &mut Request<B>
         metadata.insert(CLIENT_MSG_ID_KEY, val);
     }
 
-    // 添加自定义值
     if let Ok(values) = ctx.values().lock() {
         for (key, value) in values.iter() {
             let metadata_key = format!("{}{}", VALUES_PREFIX, key);
@@ -203,10 +164,10 @@ pub fn build_req_metadata_form_ctx<B>(ctx: &AppContext, request: &mut Request<B>
     }
 }
 
-pub fn build_context_from_metadata(metadata: &tonic::metadata::MetadataMap) -> Result<AppContext, Status> {
+#[cfg(feature = "server")]
+pub fn build_context_from_metadata(metadata: &MetadataMap) -> Result<AppContext, Status> {
     let mut builder = AppContextBuilder::new();
 
-    // 从元数据中提取信息，使用 map_err 处理错误
     if let Some(addr) = metadata.get(REMOTE_ADDR_KEY) {
         builder = builder.remote_addr(addr.to_str()
             .map_err(|_| Status::internal("Invalid remote_addr format"))?
@@ -253,7 +214,6 @@ pub fn build_context_from_metadata(metadata: &tonic::metadata::MetadataMap) -> R
             .to_string());
     }
 
-    // 从元数据中提取 values，优化错误处理
     let values = Arc::new(Mutex::new(HashMap::new()));
     {
         let mut values_map = values.lock()
