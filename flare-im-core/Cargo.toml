@@ -4,6 +4,13 @@ authors.workspace = true
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true
+description = "A high performance instant messaging core library for Flare framework"
+license = "MIT"
+repository = "https://github.com/flare152/flare"
+documentation = "https://docs.rs/flare-im-core"
+readme = "README.md"
+keywords = ["im", "websocket", "quic", "async", "network"]
+categories = ["network-programming"]
 
 [features]
 default = ["client", "server"]
