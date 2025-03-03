@@ -1,14 +1,22 @@
 [package]
 name = "protobuf-codegen"
-authors.workspace = true
-version.workspace = true
-edition.workspace = true
-rust-version.workspace = true
-description = "Generated protobuf code for Flare"
+version = "0.1.0"
+edition = "2021"
+authors = ["flare Team <flare1522@163.com>"]
+description = "Protocol buffer code generator for Flare framework"
 license = "MIT"
+repository = "https://github.com/flare152/flare"
+documentation = "https://docs.rs/protobuf-codegen"
+readme = "README.md"
+keywords = ["protobuf", "codegen", "rpc", "grpc"]
+categories = ["development-tools::build-utils"]
 
 [dependencies]
 prost = { workspace = true }
+prost-types = "0.13.5"
+tonic = { workspace = true }
+anyhow = { workspace = true }
+log = { workspace = true }
 
 [build-dependencies]
-prost-build = { workspace = true }
+tonic-build = { workspace = true }
