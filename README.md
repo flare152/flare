@@ -5,21 +5,42 @@ Flare 是一个高性能的即时通讯框架，基于 Rust 开发，支持多�
 [![Crates.io](https://img.shields.io/crates/v/flare.svg)](https://crates.io/crates/flare)
 [![Documentation](https://docs.rs/flare/badge.svg)](https://docs.rs/flare)
 [![License](https://img.shields.io/crates/l/flare.svg)](LICENSE)
+[![Rust Version](https://img.shields.io/badge/rust-1.85%2B-blue.svg)](https://www.rust-lang.org)
+
+## 技术栈
+
+- **运行时**: tokio 1.0+ (异步运行时)
+- **网络协议**:
+  - WebSocket (tokio-tungstenite 0.26)
+  - QUIC (quinn 0.11.5)
+  - gRPC (tonic 0.12)
+- **安全性**:
+  - TLS (rustls 0.23.5)
+  - 证书管理 (rustls-pemfile 2.0)
+- **数据处理**:
+  - Protocol Buffers (prost 0.13.5)
+  - JSON (serde_json 1.0)
+- **工具库**:
+  - 日志 (log 0.4, env_logger 0.11)
+  - 错误处理 (anyhow 1.0, thiserror 2.0)
+  - 时间处理 (chrono 0.4)
+  - 并发原语 (async-broadcast 0.7)
+  - 并发集合 (dashmap 6.1)
 
 ## 特性
 
 - 🚀 **高性能设计**
-  - 基于 Rust 语言开发，零成本抽象
-  - 异步 I/O，基于 tokio 运行时
+  - 基于 Rust 1.85+ 开发，零成本抽象
+  - 异步 I/O，基于 tokio 1.0+ 运行时
   - 支持多协议并发处理
 
 - 🌐 **多协议支持**
-  - WebSocket：基于 tokio-tungstenite
-  - QUIC：基于 quinn，支持 0-RTT
-  - gRPC：基于 tonic，支持服务发现
+  - WebSocket：基于 tokio-tungstenite 0.26
+  - QUIC：基于 quinn 0.11.5，支持 0-RTT
+  - gRPC：基于 tonic 0.12，支持服务发现
 
 - 🔐 **安全性**
-  - TLS 1.3 加密传输
+  - TLS 1.3 加密传输 (rustls 0.23.5)
   - 支持自定义认证插件
   - 数据加密存储
 
@@ -68,21 +89,31 @@ Flare 是一个高性能的即时通讯框架，基于 Rust 开发，支持多�
 
 ```
 flare/
-├── flare/            # 核心库
-├── flare_im_core/          # 即时通讯核心实现
-├── rpc_core/         # RPC 框架实现
-└── protobuf-codegen/ # 协议生成工具
+├── flare-core/         # 核心库
+├── flare-im-core/      # 即时通讯核心实现
+└── flare-rpc-core/     # RPC 框架实现
 ```
 
 ## 快速开始
+
+### 环境要求
+
+- Rust 1.85.0 或更高版本
+- OS: Linux, macOS
+- 内存: 8GB+
+- CPU: 4核+
 
 ### 安装
 
 ```toml
 [dependencies]
-flare = "0.1.0"      # 核心库
-flare_im_core = "0.1.0"    # IM 功能
-rpc_core = "0.1.0"   # RPC 功能
+flare-core = "0.1.0"      # 核心库
+flare-im-core = "0.1.0"   # IM 功能
+flare-rpc-core = "0.1.0"  # RPC 功能
+
+# 可选依赖
+tokio = { version = "1.0", features = ["full"] }
+anyhow = "1.0"
 ```
 
 ### 示例
@@ -131,7 +162,7 @@ async fn main() -> anyhow::Result<()> {
 ## 部署要求
 
 - OS: Linux, macOS
-- Rust: 1.70+
+- Rust: 1.85+
 - 内存: 8GB+
 - CPU: 4核+
 
@@ -145,36 +176,40 @@ async fn main() -> anyhow::Result<()> {
 
 ## 子项目
 
-### flare
+### flare-core
 
 基础库，提供核心功能和工具：
-- 配置管理
-- 日志系统
-- 错误处理
-- 通用工具
+- 配置管理 (serde 1.0)
+- 日志系统 (log 0.4, env_logger 0.11)
+- 错误处理 (anyhow 1.0, thiserror 2.0)
+- 通用工具 (chrono 0.4, uuid 1.0)
 
-### flare_im_core
+### flare-im-core
 
 即时通讯核心实现：
-- WebSocket 支持
-- QUIC 支持
-- 消息处理
-- 会话管理
+- WebSocket 支持 (tokio-tungstenite 0.26)
+- QUIC 支持 (quinn 0.11.5)
+- 消息处理 (async-broadcast 0.7)
+- 会话管理 (dashmap 6.1)
 
-### rpc_core
+### flare-rpc-core
 
 RPC 框架实现：
-- 服务发现
-- 负载均衡
-- 服务注册
-- 拦截器
+- 服务发现 (consul/etcd)
+- 负载均衡 (tower 0.5)
+- 服务注册 (tonic 0.12)
+- 拦截器 (tower 0.5)
+- 协议生成 (prost 0.13.5, prost-build 0.13.5)
 
-### protobuf-codegen
+## 版本要求
 
-协议生成工具：
-- 消息定义
-- 服务定义
-- 代码生成
+- Rust: 1.85.0+
+- 主要依赖版本:
+  - tokio: 1.0+
+  - tonic: 0.12
+  - quinn: 0.11.5
+  - tokio-tungstenite: 0.26
+  - rustls: 0.23.5
 
 ## 贡献指南
 
@@ -191,7 +226,7 @@ RPC 框架实现：
 ## 联系方式
 
 - Issues: [GitHub Issues](https://github.com/yourusername/flare/issues)
-- 邮箱: your.email@example.com
+- 邮箱: flare1522@163.com
 - 讨论组: [GitHub Discussions](https://github.com/yourusername/flare/discussions)
 
 ## 致谢

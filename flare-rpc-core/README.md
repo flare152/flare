@@ -5,6 +5,24 @@ Flare RPC Core 是 Flare 框架的 RPC 核心实现，基于 tonic (gRPC) 构建
 [![Crates.io](https://img.shields.io/crates/v/flare-rpc-core.svg)](https://crates.io/crates/flare-rpc-core)
 [![Documentation](https://docs.rs/flare-rpc-core/badge.svg)](https://docs.rs/flare-rpc-core)
 [![License](https://img.shields.io/crates/l/flare-rpc-core.svg)](LICENSE)
+[![Rust Version](https://img.shields.io/badge/rust-1.85%2B-blue.svg)](https://www.rust-lang.org)
+
+## 技术栈
+
+- **运行时**: tokio 1.0+ (异步运行时)
+- **RPC 框架**: tonic 0.12 (gRPC 实现)
+- **服务发现**: 
+  - Consul (reqwest 0.12.12)
+  - Etcd (etcd-client 0.14)
+- **中间件**: tower 0.5 (服务组件)
+- **序列化**: 
+  - Protocol Buffers (prost 0.13.5)
+  - JSON (serde_json 1.0)
+- **工具库**:
+  - anyhow (错误处理)
+  - async-trait (异步特征)
+  - dashmap 6.1 (并发哈希表)
+  - uuid 1.0 (唯一标识符)
 
 ## 功能特性
 
@@ -16,14 +34,14 @@ Flare RPC Core 是 Flare 框架的 RPC 核心实现，基于 tonic (gRPC) 构建
   - 支持服务元数据管理
 
 - **负载均衡**
-  - 多种负载均衡策略
+  - 多种负载均衡策略 (Round Robin, Random)
   - 支持服务权重配置
-  - 动态服务列表更新
+  - 动态服务列表更新 (基于 async-broadcast 0.7)
   - 自动故障节点剔除
 
 ### 2. 拦截器机制
 - **上下文传递**
-  - 请求级别上下文
+  - 请求级别上下文 (基于 tower 中间件)
   - 分布式追踪支持
   - 用户认证信息传递
   - 自定义元数据传输
@@ -63,27 +81,34 @@ Flare RPC Core 是 Flare 框架的 RPC 核心实现，基于 tonic (gRPC) 构建
 
 ```
 client
-  ├── tonic (transport)
-  └── tower (中间件支持)
+  ├── tonic 0.12 (transport)
+  └── tower 0.5 (中间件支持)
 
 server
-  ├── tonic (gRPC 实现)
-  └── tower (服务组件)
+  ├── tonic 0.12 (gRPC 实现)
+  └── tower 0.5 (服务组件)
 
 consul
-  └── reqwest (HTTP 客户端，支持 json)
+  └── reqwest 0.12.12 (HTTP 客户端，支持 json)
 
 etcd
-  └── etcd-client (官方客户端)
+  └── etcd-client 0.14 (官方客户端)
 ```
 
 ## 快速开始
+
+### 环境要求
+- Rust 1.85.0 或更高版本
+- 支持的操作系统: Linux, macOS
+- 构建工具: Cargo
 
 ### 1. 客户端示例
 
 ```toml
 [dependencies]
 flare-rpc-core = { version = "0.1.0", default-features = false, features = ["client", "consul"] }
+tokio = { version = "1.0", features = ["full"] }
+anyhow = "1.0"
 ```
 
 ```rust
@@ -185,10 +210,10 @@ async fn main() -> Result<(), Box<dyn Error>> {
 ## 性能优化
 
 1. **连接池管理**
-   - 自动连接复用
-   - 空闲连接清理
-   - 连接预热
-   - 断线重连
+   - 基于 tower 的连接池管理
+   - dashmap 实现的高性能并发缓存
+   - 异步广播机制 (async-broadcast)
+   - 智能重试策略
 
 2. **负载均衡优化**
    - 支持预热权重
@@ -246,10 +271,19 @@ async fn main() -> Result<(), Box<dyn Error>> {
 
 欢迎提交 Issue 和 Pull Request！在提交 PR 之前，请确保：
 
-1. 所有测试通过
-2. 代码经过 fmt 和 clippy 检查
+1. 所有测试通过 (`cargo test --all-features`)
+2. 代码经过 fmt (`cargo fmt`) 和 clippy (`cargo clippy --all-features`) 检查
 3. 更新相关文档
 4. 遵循项目编码规范
+
+## 版本要求
+
+- Rust: 1.85.0+
+- 依赖的主要库版本:
+  - tokio: 1.0+
+  - tonic: 0.12
+  - tower: 0.5
+  - prost: 0.13.5
 
 ## 开源协议
 
