@@ -4,6 +4,14 @@ authors.workspace = true
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true
+license.workspace = true
+description = "core"  # 项目描述
+homepage = "https://github.com/yourusername/flare"  # 项目主页
+repository = "https://github.com/yourusername/flare"  # 代码仓库
+documentation = "https://docs.rs/flare"  # 文档地址
+readme = "README.md"  # README 文件路径
+keywords = ["im", "chat", "websocket", "quic"]  # 关键词，最多 5 个
+categories = ["network-programming"]  # 分类，见 crates.io/categories
 
 [dependencies]
 protobuf-codegen = { version = "0.1.0" ,path = "../protobuf-codegen" }
