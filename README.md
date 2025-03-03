@@ -69,7 +69,7 @@ Flare 是一个高性能的即时通讯框架，基于 Rust 开发，支持多�
 ```
 flare/
 ├── flare/            # 核心库
-├── im_core/          # 即时通讯核心实现
+├── flare_im_core/          # 即时通讯核心实现
 ├── rpc_core/         # RPC 框架实现
 └── protobuf-codegen/ # 协议生成工具
 ```
@@ -81,7 +81,7 @@ flare/
 ```toml
 [dependencies]
 flare = "0.1.0"      # 核心库
-im_core = "0.1.0"    # IM 功能
+flare_im_core = "0.1.0"    # IM 功能
 rpc_core = "0.1.0"   # RPC 功能
 ```
 
@@ -90,7 +90,7 @@ rpc_core = "0.1.0"   # RPC 功能
 #### WebSocket 服务端
 
 ```rust
-use im_core::server::websocket::WsServer;
+use flare_im_core::server::websocket::WsServer;
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
@@ -107,7 +107,7 @@ async fn main() -> anyhow::Result<()> {
 #### QUIC 客户端
 
 ```rust
-use im_core::client::quic::QuicClient;
+use flare_im_core::client::quic::QuicClient;
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
@@ -153,7 +153,7 @@ async fn main() -> anyhow::Result<()> {
 - 错误处理
 - 通用工具
 
-### im_core
+### flare_im_core
 
 即时通讯核心实现：
 - WebSocket 支持

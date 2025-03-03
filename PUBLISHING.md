@@ -22,39 +22,38 @@ cargo login <your-api-token>
 
 ```toml
 [package]
-name = "flare"        # crate 名称
-version = "0.1.0"     # 版本号
-edition = "2021"      # Rust 版本
-license = "MIT"       # 开源协议
-description = "A high performance IM framework"  # 项目描述
-homepage = "https://github.com/yourusername/flare"  # 项目主页
-repository = "https://github.com/yourusername/flare"  # 代码仓库
-documentation = "https://docs.rs/flare"  # 文档地址
-readme = "README.md"  # README 文件路径
-keywords = ["im", "chat", "websocket", "quic"]  # 关键词，最多 5 个
-categories = ["network-programming"]  # 分类，见 crates.io/categories
+name = "flare-core"        # crate 名称
+version = "0.1.0"          # 版本号
+edition = "2021"           # Rust 版本
+license = "MIT"            # 开源协议
+description = "A high performance IM framework core library"  # 项目描述
+homepage = "https://github.com/flare152/flare"    # 项目主页
+repository = "https://github.com/flare152/flare"   # 代码仓库
+documentation = "https://docs.rs/flare-core"       # 文档地址
+readme = "README.md"       # README 文件路径
+keywords = ["im", "framework", "async", "network"] # 关键词，最多 5 个
+categories = ["network-programming"]               # 分类，见 crates.io/categories
 
-# 以下是工作空间中各个 crate 的配置
+# 工作空间配置
 [workspace]
 members = [
-    "flare",
-    "im_core",
-    "rpc_core",
-    "protobuf-codegen",
+    "flare-core",
+    "flare-im-core",
+    "flare-rpc-core",
 ]
 
 [workspace.package]
 version = "0.1.0"
 edition = "2021"
-authors = ["Your Name <your.email@example.com>"]
+authors = ["flare Team <flare1522@163.com>"]
 license = "MIT"
-rust-version = "1.70"
+rust-version = "1.85.0"
 ```
 
 ### 4. 完善文档
 
 1. 确保每个公开 API 都有文档注释
-2. 更新 README.md，包含：
+2. 更新每个包的 README.md，包含：
    - 项目简介
    - 功能特性
    - 安装方法
@@ -69,28 +68,22 @@ rust-version = "1.70"
 
 由于项目是工作空间结构，需要按照依赖顺序发布：
 
-1. 首先发布基础库 `flare`：
+1. 首先发布基础库 `flare-core`：
 ```bash
-cd flare
+cd flare-core
 cargo publish --dry-run  # 先进行测试
 cargo publish           # 确认无误后正式发布
 ```
 
-2. 发布 `protobuf-codegen`：
+2. 发布 `flare-rpc-core`：
 ```bash
-cd ../protobuf-codegen
+cd ../flare-rpc-core
 cargo publish
 ```
 
-3. 发布 `rpc_core`：
+3. 发布 `flare-im-core`：
 ```bash
-cd ../rpc_core
-cargo publish
-```
-
-4. 发布 `im_core`：
-```bash
-cd ../im_core
+cd ../flare-im-core
 cargo publish
 ```
 
@@ -114,7 +107,24 @@ cargo publish
 - [ ] 确认 README.md 内容最新
 - [ ] 确认所有依赖版本合理
 
-### 4. 持续维护
+### 4. 包依赖关系
+
+1. **flare-core**
+   - 基础功能库
+   - 不依赖其他本地包
+   - 提供核心工具和类型
+
+2. **flare-rpc-core**
+   - 依赖 `flare-core`
+   - 提供 RPC 框架功能
+   - 支持 client/server features
+
+3. **flare-im-core**
+   - 依赖 `flare-core`
+   - 可选依赖 `flare-rpc-core`
+   - 提供即时通讯功能
+
+### 5. 持续维护
 
 1. **版本更新**
    - 及时响应用户反馈

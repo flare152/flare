@@ -1,9 +1,8 @@
 [workspace]
 members = [
-    "rpc_core",
-    "im_core",
-    "protobuf-codegen",
-    "flare",
+    "flare-core",
+    "flare-im-core",
+    "flare-rpc-core",
 ]
 resolver = "2"
 

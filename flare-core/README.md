@@ -37,7 +37,7 @@ Flare Core 是 Flare 即时通讯框架的核心基础库，提供了构建高�
 - 错误链追踪
 - 自定义错误转换
   ```rust
-  use flare::error::{Error, Result};
+  use flare_core::error::{Error, Result};
   
   #[derive(Debug, Error)]
   pub enum MyError {
@@ -115,7 +115,7 @@ async fn main() -> Result<()> {
 ### 错误处理
 
 ```rust
-use flare::error::{Error, Result};
+use flare_core::error::{Error, Result};
 use flare::log::error;
 
 async fn process() -> Result<()> {

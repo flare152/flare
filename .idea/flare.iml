@@ -2,14 +2,14 @@
 <module type="EMPTY_MODULE" version="4">
   <component name="NewModuleRootManager">
     <content url="file://$MODULE_DIR$">
-      <sourceFolder url="file://$MODULE_DIR$/im_core/examples" isTestSource="false" />
-      <sourceFolder url="file://$MODULE_DIR$/im_core/src" isTestSource="false" />
-      <sourceFolder url="file://$MODULE_DIR$/im_core/tests" isTestSource="true" />
       <sourceFolder url="file://$MODULE_DIR$/protobuf-codegen/src" isTestSource="false" />
       <sourceFolder url="file://$MODULE_DIR$/src" isTestSource="false" />
-      <sourceFolder url="file://$MODULE_DIR$/rpc_core/src" isTestSource="false" />
-      <sourceFolder url="file://$MODULE_DIR$/flare/src" isTestSource="false" />
-      <sourceFolder url="file://$MODULE_DIR$/rpc_core/examples" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/flare-core/src" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/flare-im-core/examples" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/flare-im-core/src" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/flare-im-core/tests" isTestSource="true" />
+      <sourceFolder url="file://$MODULE_DIR$/flare-rpc-core/examples" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/flare-rpc-core/src" isTestSource="false" />
       <excludeFolder url="file://$MODULE_DIR$/protobuf-codegen/target" />
       <excludeFolder url="file://$MODULE_DIR$/target" />
     </content>
