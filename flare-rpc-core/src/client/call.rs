@@ -1,6 +1,6 @@
 use crate::interceptor::ctxinterceprot::AppContextConfig;
-use flare::context::AppContext;
-use flare::context::AppContextBuilder;
+use flare_core::context::AppContext;
+use flare_core::context::AppContextBuilder;
 use std::future::Future;
 use std::pin::Pin;
 use std::str::FromStr;

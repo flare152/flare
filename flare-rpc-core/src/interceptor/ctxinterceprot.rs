@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
 use tonic::{Request, Status};
-use flare::context::{AppContext, AppContextBuilder};
+use flare_core::context::{AppContext, AppContextBuilder};
 use tonic::metadata::{MetadataValue, MetadataMap, MetadataKey};
 use std::str::FromStr;
 

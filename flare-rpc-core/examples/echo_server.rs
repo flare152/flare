@@ -1,5 +1,7 @@
-use rpc_core::app::{App, AppBuilder};
-use rpc_core::discover::{ConsulConfig, ConsulRegistry};
+use flare_rpc_core::app::{App, AppBuilder};
+#[cfg(feature = "consul")]
+use flare_rpc_core::discover::{ConsulConfig, ConsulRegistry};
+#[cfg(feature = "server")]
 use tonic::{Request, Response, Status};
 use std::error::Error;
 use std::time::Duration;
@@ -14,7 +16,7 @@ impl echo_server::Echo for EchoService {
     async fn echo(&self, request: Request<EchoRequest>) -> Result<Response<EchoResponse>, Status> {
         // 从请求的 metadata 中获取上下文信息
         let metadata = request.metadata();
-        let ctx = rpc_core::interceptor::build_context_from_metadata(metadata)?;
+        let ctx = flare_rpc_core::interceptor::build_context_from_metadata(metadata)?;
         
         // 获取请求消息
         let msg = request.into_inner().message;

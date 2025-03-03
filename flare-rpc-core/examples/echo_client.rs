@@ -1,9 +1,12 @@
-use rpc_core::discover::{ConsulConfig, ConsulDiscover, ConsulRegistry, LoadBalanceStrategy, RpcDiscovery};
-use rpc_core::client::call_rpc;
-use flare::context::AppContextBuilder;
+#[cfg(all(feature = "client", feature = "consul"))]
+use flare_rpc_core::discover::{ConsulConfig, ConsulDiscover, ConsulRegistry, LoadBalanceStrategy, RpcDiscovery};
+#[cfg(feature = "client")]
+use flare_rpc_core::client::call_rpc;
+use flare_core::context::AppContextBuilder;
 use std::error::Error;
 use std::sync::{Arc, Mutex};
 use std::collections::HashMap;
+#[cfg(feature = "client")]
 use tonic::transport::Channel;
 
 // 包含生成的 proto 代码

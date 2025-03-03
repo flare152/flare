@@ -1,0 +1,54 @@
+[package]
+name = "flare-rpc-core"
+version = "0.1.0"
+edition = "2021"
+authors = ["flare Team <flare1522@163.com>"]
+description = "RPC framework core for Flare"
+license = "MIT"
+repository = "https://github.com/flare152/flare"
+documentation = "https://docs.rs/flare-rpc-core"
+readme = "README.md"
+keywords = ["rpc", "grpc", "framework", "async"]
+categories = ["network-programming"]
+[features]
+default = ["client", "server", "consul"]
+client = ["tonic/transport", "tower"]
+server = ["tonic", "tower"]
+consul = ["reqwest"]
+etcd = ["etcd-client"]
+full = ["client", "server", "consul", "etcd"]
+
+[dependencies]
+flare-core = { path = "../flare-core", version = "0.1.0" }
+
+tokio = { workspace = true }
+tonic = { workspace = true, optional = true }
+prost = { workspace = true }
+anyhow = { workspace = true }
+async-trait = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+log = { workspace = true }
+uuid = { workspace = true }
+tower = { workspace = true, optional = true }
+
+# Optional dependencies
+reqwest = { workspace = true, optional = true, features = ["json"] }
+etcd-client = { workspace = true, optional = true }
+thiserror = { workspace = true}
+rand = { workspace = true}
+[dev-dependencies]
+tokio = { workspace = true, features = ["full"] }
+env_logger = { workspace = true }
+tonic = { workspace = true }
+
+[build-dependencies]
+tonic-build = { workspace = true }
+
+[[example]]
+name = "echo_server"
+required-features = ["server", "consul"]
+
+[[example]]
+name = "echo_client"
+required-features = ["client", "consul"]
