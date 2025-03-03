@@ -1,10 +1,9 @@
 use std::path::PathBuf;
 
-fn main() {
+fn main() -> std::io::Result<()> {
     // 定义.proto文件及其对应的输出目录
     let proto_files = vec![
         ("proto/net.proto", "src/flare_gen"),
-       // ("proto/user.proto", "src/flare_gen/user"),
     ];
 
     // 配置 prost-build
@@ -15,15 +14,17 @@ fn main() {
         let out_path = PathBuf::from(out_dir);
 
         // 创建输出目录
-        std::fs::create_dir_all(&out_path).unwrap();
+        std::fs::create_dir_all(&out_path)?;
 
         // 设置输出目录
         config.out_dir(&out_path);
 
         // 编译 proto 文件
-        config.compile_protos(&[proto], &[proto_dir]).unwrap();
+        config.compile_protos(&[proto], &[proto_dir])?;
 
         // 让 cargo 在 proto 文件改变时重新运行
         println!("cargo:rerun-if-changed={}", proto);
     }
+
+    Ok(())
 }

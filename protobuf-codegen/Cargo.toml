@@ -20,3 +20,4 @@ log = { workspace = true }
 
 [build-dependencies]
 prost-build = { workspace = true }
+which = "4.4"
